@@ -1,0 +1,71 @@
+package CodrutVisual;
+
+{$R *.res}
+{$R 'Icons.dcr'}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  vcl,
+  vclimg,
+  vclwinx,
+  PngComponents,
+  IndySystem,
+  IndyProtocols,
+  IndyCore;
+
+contains
+  Cod.Button in 'src\Cod.Button.pas',
+  Cod.StarRate in 'src\Cod.StarRate.pas',
+  Cod.SplashScreen in 'src\Cod.SplashScreen.pas',
+  MetroTools in 'src\MetroTools.pas',
+  Cod.Progress in 'src\Cod.Progress.pas',
+  Cod.Slider in 'src\Cod.Slider.pas',
+  CTransparentUI in 'src\CTransparentUI.pas',
+  Cod.LoadIco in 'src\Cod.LoadIco.pas',
+  Cod.Image in 'src\Cod.Image.pas',
+  Cod.StandardIcons in 'src\Cod.StandardIcons.pas',
+  Cod.Labels in 'src\Cod.Labels.pas',
+  Cod.Chart in 'src\Cod.Chart.pas',
+  Cod.CheckBox in 'src\Cod.CheckBox.pas',
+  Cod.ColorWheel in 'src\Cod.ColorWheel.pas',
+  Cod.ColorBright in 'src\Cod.ColorBright.pas',
+  Cod.CPSharedLib in 'src\Cod.CPSharedLib.pas',
+  Cod.ColorBox in 'src\Cod.ColorBox.pas',
+  Cod.Panels in 'src\Cod.Panels.pas',
+  Cod.Components in 'src\Cod.Components.pas',
+  Cod.GlassBlur in 'src\Cod.GlassBlur.pas';
+
+end.
+
+
+
+
+
+
+
+

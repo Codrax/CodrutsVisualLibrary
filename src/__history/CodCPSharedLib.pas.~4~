@@ -1,0 +1,26 @@
+unit CodCPSharedLib;
+
+interface
+uses
+  Types;
+
+const
+  nothemes: TArray<string> = ['Windows', 'Mountain_Mist'];
+
+implementation
+
+function StrInArray(const Value : String;const ArrayOfString : Array of String) : Boolean;
+var
+ Loop : String;
+begin
+  for Loop in ArrayOfString do
+  begin
+    if Value = Loop then
+    begin
+       Exit(true);
+    end;
+  end;
+  result := false;
+end;
+
+end.

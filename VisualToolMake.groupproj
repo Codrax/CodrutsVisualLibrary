@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{F0B08606-188D-4228-9301-9491A2BB5852}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="..\..\(i) Other\Testing\Testing.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="CodrutVisual.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="Testing">
+        <MSBuild Projects="..\..\(i) Other\Testing\Testing.dproj"/>
+    </Target>
+    <Target Name="Testing:Clean">
+        <MSBuild Projects="..\..\(i) Other\Testing\Testing.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Testing:Make">
+        <MSBuild Projects="..\..\(i) Other\Testing\Testing.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="CodrutVisual">
+        <MSBuild Projects="CodrutVisual.dproj"/>
+    </Target>
+    <Target Name="CodrutVisual:Clean">
+        <MSBuild Projects="CodrutVisual.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="CodrutVisual:Make">
+        <MSBuild Projects="CodrutVisual.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="Testing;CodrutVisual"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="Testing:Clean;CodrutVisual:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="Testing:Make;CodrutVisual:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
