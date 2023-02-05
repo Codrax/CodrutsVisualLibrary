@@ -3,8 +3,6 @@ A suite of component similar to the Fluent Design System in Microsoft Windows 11
 
 This Delphi library was made in Embarcadero Delphi Community Edition 10.4.
 
-[!] Attention: This library is incomplete. It's dependencies are currently not included.
-
 You may fork this branch as long as as the original source is propperly credited
 
 Components
