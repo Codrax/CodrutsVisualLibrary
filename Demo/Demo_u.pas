@@ -4,11 +4,13 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Cod.Progress,
-  Cod.StandardIcons, Cod.Button, Cod.Chart, Vcl.ExtCtrls, Cod.ColorWheel,
-  Cod.ColorBox, Cod.ColorBright, Cod.CheckBox, Cod.SplashScreen, Cod.StarRate,
-  Cod.Slider, Cod.Panels, Cod.Image, Vcl.Imaging.GIFImg, Vcl.Imaging.pngimage,
-  Cod.Dialogs, Cod.ColorDialog;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
+  Vcl.Imaging.GIFImg, Vcl.Imaging.pngimage, Cod.Dialogs, Cod.ColorDialog,
+  Cod.Visual.GlassBlur, Cod.Visual.Panels, Cod.Visual.Image, Cod.Visual.Slider,
+  Cod.Visual.SplashScreen, Cod.Visual.StarRate, Cod.Visual.CheckBox,
+  Cod.Visual.ColorWheel, Cod.Visual.ColorBright, Cod.Visual.ColorBox,
+  Cod.Visual.Progress, Cod.Visual.StandardIcons, Cod.Visual.Chart,
+  Cod.Visual.Button;
 
 type
   TForm1 = class(TForm)
@@ -87,11 +89,6 @@ type
     CButton16: CButton;
     CButton17: CButton;
     Label13: TLabel;
-    CImage1: CImage;
-    CImage2: CImage;
-    CImage3: CImage;
-    CImage4: CImage;
-    CImage5: CImage;
     pg4: TPanel;
     Label14: TLabel;
     CButton18: CButton;
@@ -120,6 +117,29 @@ type
     CColorDialog2: CColorDialog;
     Label16: TLabel;
     CButton21: CButton;
+    Memo1: TMemo;
+    CButton22: CButton;
+    CButton23: CButton;
+    pg5: TPanel;
+    CGlassBlur: TLabel;
+    CGlassBlur1: CGlassBlur;
+    CGlassBlur2: CGlassBlur;
+    CGlassBlur3: CGlassBlur;
+    Label17: TLabel;
+    Label18: TLabel;
+    Label19: TLabel;
+    Label26: TLabel;
+    CImage11: CImage;
+    CImage6: CImage;
+    Label25: TLabel;
+    Label24: TLabel;
+    CImage10: CImage;
+    Label23: TLabel;
+    CImage9: CImage;
+    Label22: TLabel;
+    CImage8: CImage;
+    Label21: TLabel;
+    CImage7: CImage;
     procedure CProgress1MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
     procedure CProgress1MouseLeave(Sender: TObject);
@@ -138,15 +158,19 @@ type
     procedure CButton19Click(Sender: TObject);
     procedure CButton20Click(Sender: TObject);
     procedure CButton21Click(Sender: TObject);
+    procedure CButton22Click(Sender: TObject);
+    procedure CButton23Click(Sender: TObject);
   private
     { Private declarations }
     procedure GoToPage(pg: integer);
+
+    procedure FormMove(var Msg: TMsg); message WM_MOVE;
   public
     { Public declarations }
   end;
 
 const
-  pages = 4;
+  pages = 5;
 
 var
   Form1: TForm1;
@@ -170,6 +194,7 @@ end;
 procedure TForm1.CButton18Click(Sender: TObject);
 var
   a: TMsgDlgButtons;
+  BTCOLOR: integer;
 begin
   a := [];
   if CheckBOx2.Checked then
@@ -181,10 +206,14 @@ begin
   if CheckBOx5.Checked then
     a := a + [TMsgDlgBtn.mbCancel];
 
+  if CheckBox7.Checked then
+    BTCOLOR := -1
+  else
+    BTCOLOR := CColorBox3.ItemColor;
 
   CodDialog(Edit1.Text, Edit2.Text, CMessageType(ComboBox1.ItemIndex),
             a,CButtonPreset(ComboBox2.ItemIndex), CColorBox2.ItemColor,
-            CheckBOx1.Checked, CColorBox3.ItemColor, CheckBox6.Checked, CheckBox7.Checked );
+            CheckBOx1.Checked, BTCOLOR, CheckBox6.Checked );
 end;
 
 procedure TForm1.GetClr(Sender: TObject);
@@ -193,29 +222,70 @@ begin
 end;
 
 procedure TForm1.CButton19Click(Sender: TObject);
+var
+  BTCOLOR: integer;
 begin
+  if CheckBox7.Checked then
+    BTCOLOR := -1
+  else
+    BTCOLOR := CColorBox3.ItemColor;
+
     CodMessage(Edit1.Text, Edit2.Text, CButtonPreset(ComboBox2.ItemIndex), CColorBox2.ItemColor,
-            CheckBOx1.Checked, CColorBox3.ItemColor, CheckBox6.Checked, CheckBox7.Checked );
+            CheckBOx1.Checked, BTCOLOR, CheckBox6.Checked );
 end;
 
 procedure TForm1.CButton20Click(Sender: TObject);
 var
   passchar: char;
+  BTCOLOR: integer;
 begin
   passchar := #0;
 
   if CheckBox11.Checked then
     passchar := '*';
 
+  if CheckBox7.Checked then
+    BTCOLOR := -1
+  else
+    BTCOLOR := CColorBox3.ItemColor;
+
     CodInput(Edit1.Text, Edit2.Text, 'pre data', CheckBox10.Checked,
              CheckBox9.Checked, passchar, CButtonPreset(ComboBox2.ItemIndex),
-             CColorBox2.ItemColor, CheckBOx1.Checked, CColorBox3.ItemColor,
-             CheckBox6.Checked, CheckBox7.Checked );
+             CColorBox2.ItemColor, CheckBOx1.Checked, BTCOLOR,
+             CheckBox6.Checked );
 end;
 
 procedure TForm1.CButton21Click(Sender: TObject);
 begin
   CButton(Sender).Colors.Leave := CColorDialog1.GetColor(CButton(Sender).Colors.Leave);
+end;
+
+procedure TForm1.CButton22Click(Sender: TObject);
+var
+  BTCOLOR: integer;
+begin
+  if CheckBox7.Checked then
+    BTCOLOR := -1
+  else
+    BTCOLOR := CColorBox3.ItemColor;
+
+    CodDropDown(Edit1.Text, Edit2.Text, TStringList(Memo1.Lines), CheckBox10.Checked,
+            CButtonPreset(ComboBox2.ItemIndex), CColorBox2.ItemColor,
+            CheckBOx1.Checked, BTCOLOR, CheckBox6.Checked );
+end;
+
+procedure TForm1.CButton23Click(Sender: TObject);
+var
+  BTCOLOR: integer;
+begin
+  if CheckBox7.Checked then
+    BTCOLOR := -1
+  else
+    BTCOLOR := CColorBox3.ItemColor;
+
+    CodRadioDialog(Edit1.Text, Edit2.Text, TStringList(Memo1.Lines), CheckBox10.Checked,
+            CButtonPreset(ComboBox2.ItemIndex), CColorBox2.ItemColor,
+            CheckBOx1.Checked, BTCOLOR, CheckBox6.Checked );
 end;
 
 procedure TForm1.CColorBright1ChangeItemColor(Sender: CColorBright;
@@ -259,6 +329,17 @@ begin
   GoToPage(1);
 end;
 
+procedure TForm1.FormMove(var Msg: TMsg);
+begin
+  // Manual Glass Blur Redraw
+  if Self.Visible and pg5.Visible then
+    begin
+      CGlassBlur1.SyncroniseImage;
+      CGlassBlur2.SyncroniseImage;
+      CGlassBlur3.SyncroniseImage;
+    end;
+end;
+
 procedure TForm1.GoToPage(pg: integer);
 begin
   if pg > pages then pg := pages;
@@ -270,6 +351,7 @@ begin
     2: pg2.BringToFront;
     3: pg3.BringToFront;
     4: pg4.BringToFront;
+    5: pg5.BringToFront;
   end;
 
   if pg = 1 then pvpg.Enabled := false else pvpg.Enabled := true;

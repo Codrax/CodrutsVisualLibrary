@@ -1,0 +1,342 @@
+{***********************************************************}
+{                  Codruts System Utilities                 }
+{                                                           }
+{                        version 0.2                        }
+{                           ALPHA                           }
+{                                                           }
+{                                                           }
+{                                                           }
+{                                                           }
+{                                                           }
+{                   -- WORK IN PROGRESS --                  }
+{***********************************************************}
+
+{$WARN SYMBOL_PLATFORM OFF}
+
+unit Cod.Documents;
+
+interface
+  uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, ActiveX, ComObj, MetroTools, Cod.SysUtils, Types;
+
+  type
+    CExportProgres = procedure(Progress: integer) of object;
+
+    CSpreadSheet = class;
+
+    CSpreadSheet = class(TPersistent)
+      public
+        Sheet: TArray<TArray<string>>;
+
+        constructor Create;
+        destructor Destroy; override;
+      private
+        Colum, Row: integer;
+
+        procedure SetSize; overload;
+        procedure SetSize(Columns, Rows: integer); overload;
+      published
+        function SheetRows: integer;
+        function SheetColumns: integer;
+
+        function Cell(const X, Y: integer): string;
+        procedure SetCell(const X, Y: integer; Value: string; extend: boolean = true);
+
+        function CoordonateOf(Value: string): TPoint;
+
+        procedure SetSheetSize(Columns, Rows: integer);
+
+        procedure LoadFromExcelDocument(filelocation: string; page: integer = 1; silenterror: boolean = false);
+        procedure SaveToExcelDocument(filelocation: string; silenterror: boolean = false);
+
+    end;
+
+
+  { Doc -> Array }
+  function GetExcelDoc(SheetIndex:integer; filelocation: string;
+    silenterror: boolean = false): TArray<TArray<string>>;
+  procedure WriteToExcelDoc(filelocation: string; data: TArray<TArray<String>>;
+    silenterror: boolean = false; showwork: boolean = false);
+  function GetExcelSheetsName(filelocation: string; silenterror: boolean = false): TStringList;
+
+  var
+    ExportQueryStat: CExportProgres;
+
+
+implementation
+
+
+function GetExcelSheetsName(filelocation: string; silenterror: boolean = false): TStringList;
+Var
+  Xlapp1: Variant;
+  str, err: string;
+  c: integer;
+  I: Integer;
+begin
+  Str:=trim(filelocation);
+
+  Result := TStringList.Create;
+
+  // Create OLE Object
+  try
+    XLApp1 := createoleobject('excel.application');
+    XLApp1.Workbooks.open(Str) ;
+  except
+    if silenterror then
+      Exit;
+    err := SysErrorMessage(GetLastError);
+    raise Exception.Create('Coult not create OLE Object. Verify that you have Excel installed and that you have permisions to access the document.' + #13 + #13 + 'Error Message:' + #13 + err);
+  end;
+
+  c := XLApp1.WorkSheets.Count;
+
+  Result := TStringList.Create;
+  for I := 1 to c do
+    Result.Add(XLApp1.WorkSheets[I].Name);
+
+
+  XLApp1.Workbooks.close;
+end;
+
+function GetExcelDoc(SheetIndex:integer; filelocation: string; silenterror: boolean = false): TArray<TArray<string>>;
+Var
+  Xlapp1, Sheet:Variant ;
+  MaxRow, MaxCol,X, Y:integer ;
+  str, err: string;
+  arrData: Variant;
+  v: variant;
+begin
+  Str:=trim(filelocation);
+
+  // Create OLE Object
+  try
+    XLApp1 := createoleobject('excel.application');
+    XLApp1.Workbooks.open(Str) ;
+  except
+    if silenterror then
+      Exit;
+    err := SysErrorMessage(GetLastError);
+    raise Exception.Create('Coult not create OLE Object. Verify that you have Excel installed and that you have permisions to access the document.' + #13 + #13 + 'Error Message:' + #13 + err);
+  end;
+
+  Sheet := XLApp1.WorkSheets[SheetIndex] ;
+
+  MaxRow := Sheet.Usedrange.EntireRow.count ;
+  MaxCol := sheet.Usedrange.EntireColumn.count;
+
+  // Read used range
+  arrData:= Sheet.UsedRange.Value;
+
+  SetLength(Result, maxRow, maxCol);
+
+  // Copy the data to the array
+  for x := 1 to maxCol do
+    for y := 1 to maxRow do
+      begin
+        v := arrData[y, x];
+        if VarIsError(v) then
+          Result[y - 1, x - 1] := 'Error'
+        else
+          Result[y - 1, x - 1] := v;
+      end;
+
+  XLApp1.Workbooks.close;
+end;
+
+{ CSpreadSheet }
+
+function CSpreadSheet.Cell(const X, Y: integer): string;
+begin
+  Result := Sheet[Y, X];
+end;
+
+function CSpreadSheet.CoordonateOf(Value: string): TPoint;
+var
+  I, A: Integer;
+begin
+  Result := Point(-1, -1);
+
+  for I := 0 to Row - 1 do
+    for A := 0 to Colum - 1 do
+      if Sheet[A, I] = Value then
+        begin
+          Result := Point(I, A);
+          Exit;
+        end;
+end;
+
+constructor CSpreadSheet.Create;
+begin
+  inherited Create;
+
+  SetSize(1, 1);
+end;
+
+destructor CSpreadSheet.Destroy;
+begin
+  inherited Destroy;
+
+end;
+
+procedure CSpreadSheet.LoadFromExcelDocument(filelocation: string;
+  page: integer; silenterror: boolean);
+begin
+  Sheet := GetExcelDoc(page, filelocation, silenterror);
+
+  Colum := length(Sheet);
+  Row := length(Sheet[0]);
+end;
+
+procedure CSpreadSheet.SaveToExcelDocument(filelocation: string;
+  silenterror: boolean);
+begin
+  WriteToExcelDoc(filelocation, Sheet);
+end;
+
+procedure CSpreadSheet.SetCell(const X, Y: integer; Value: string; extend: boolean);
+begin
+  if X > Row - 1 then
+    if extend then
+      begin
+        Row := X + 1;
+        SetSize;
+      end
+        else
+      Exit;
+
+  if Y > Colum - 1 then
+    if extend then
+      begin
+        Colum := Y + 1;
+        SetSize;
+      end
+        else
+      Exit;
+
+  Sheet[Y, X] := Value;
+end;
+
+procedure CSpreadSheet.SetSheetSize(Columns, Rows: integer);
+begin
+  SetSize(Columns, Rows);
+end;
+
+procedure CSpreadSheet.SetSize(Columns, Rows: integer);
+begin
+  // Set to a size
+  Colum := Columns;
+  Row := ROws;
+
+  SetLength(Sheet, Colum, Row);
+end;
+
+procedure CSpreadSheet.SetSize;
+begin
+  // Update Size
+  SetLength(Sheet, Colum, Row);
+end;
+
+function CSpreadSheet.SheetColumns: integer;
+begin
+  Result := Colum;
+end;
+
+function CSpreadSheet.SheetRows: integer;
+begin
+  Result := Row;
+end;
+
+procedure WriteToExcelDoc(filelocation: string;
+  data: TArray<TArray<String>>;
+  silenterror: boolean; showwork: boolean);
+var
+  ExcelFileName,
+  err: String;
+  ExcelApplication, ExcelWorkbook, ExcelWorksheet: Variant;
+  I,
+  A,
+  p,
+  lst: Integer;
+begin
+     ExcelFileName := filelocation;
+
+     ExcelApplication := Null;
+     ExcelWorkbook := Null;
+     ExcelWorksheet := Null;
+
+     // Create OLE object
+     try
+        ExcelApplication := CreateOleObject('Excel.Application');
+     except
+          ExcelApplication := Null;
+          if silenterror then
+            Exit;
+          err := SysErrorMessage(GetLastError);
+          raise Exception.Create('Coult not create OLE Object. Verify that you have Excel installed and that the document is not in use by another program.' + #13 + #13 + 'Error Message:' + #13 + err);
+     end;
+
+     // Verify if the application is nul
+     If VarIsNull(ExcelApplication) = False then
+        begin
+             try
+                ExcelApplication.Visible := showwork;
+                ExcelApplication.DisplayAlerts := False;
+
+                // Open Excel Workbook
+                try
+                   ExcelWorkbook := ExcelApplication.WorkBooks.Add(-4167);
+                except
+                      ExcelWorkbook := Null;
+                end;
+
+                lst := 0;
+
+                If VarIsNull(ExcelWorkbook) = False then
+                   begin
+                        try
+                           ExcelWorksheet := ExcelWorkbook.WorkSheets[1];
+                        except
+                          ExcelWorksheet := Null;
+                        end;
+
+                        If VarIsNull(ExcelWorksheet) = False then
+                           begin
+                                ExcelWorksheet.Select;
+
+                                // Write Cells
+                                  for I := 0 to Length(data) - 1 do
+                                    for A := 0 to Length(data[0]) - 1 do
+                                      try
+                                        ExcelWorksheet.Cells[I + 1, A + 1] := data[I, A];
+
+                                        if Assigned(ExportQueryStat) then
+                                        begin
+                                          p := trunc(I / (Length(data) - 1) * 100);
+
+                                          if p <> lst then
+                                            ExportQueryStat(p);
+
+                                          lst := p
+                                        end;
+                                      except
+
+                                      end;
+
+
+                                ExcelWorkbook.SaveAs(ExcelFileName);
+                           end;
+                   end;
+             finally
+                    ExcelApplication.Workbooks.Close;
+                    ExcelApplication.DisplayAlerts := True;
+                    ExcelApplication.Quit;
+
+                    ExcelWorksheet := Unassigned;
+                    ExcelWorkbook := Unassigned;
+                    ExcelApplication := Unassigned;
+             end;
+        end;
+end;
+
+end.

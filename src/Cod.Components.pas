@@ -4,7 +4,8 @@ interface
 
 uses
   Types, UITypes, Classes, System.UIConsts, Vcl.Graphics,
-  Variants, System.Win.Registry, Windows, SysUtils, System.DateUtils;
+  Variants, System.Win.Registry, Winapi.Windows, SysUtils, System.DateUtils,
+  Cod.Registry;
 
   type
     CAccentColor = (acNone, acAccent, acAccentAdjust, acAccentCustom);
@@ -17,6 +18,11 @@ uses
 
       procedure UpdateAccent;
     end;
+
+    TMPersistent = class(TPersistent)
+    Owner : TPersistent;
+    constructor Create(AOwner : TPersistent); overload; virtual;
+  end;
 
     function GetColorSat(color: TColor; ofing: integer = 255): integer;
     function ChangeColorSat(clr: TColor; perc: integer): TColor;
@@ -133,7 +139,7 @@ end;
 procedure SyncAccentColor;
 var
   R: TRegistry;
-  ARGB: Cardinal;
+  Value: Cardinal;
   CSat: integer;
   //themedark: boolean;
 begin
@@ -144,8 +150,9 @@ begin
   try
     R.RootKey := HKEY_CURRENT_USER;
     if R.OpenKeyReadOnly('Software\Microsoft\Windows\DWM\') and R.ValueExists('AccentColor') then begin
-      ARGB := R.ReadInteger('AccentColor');
-      AccentColor := ARGB mod $FF000000; //  ARGB to RGB
+      Value := R.ReadCardinal('AccentColor');
+
+      AccentColor := Value mod $FF000000; //  ARGB to RGB
       AdjustedAccentColor := AccentColor;
     end;
   finally
@@ -168,6 +175,14 @@ begin
 
   if CSat > 155 then
     AdjustedAccentColor := ChangeColorSat(AccentColor, (CSat - 155) * -1);
+end;
+
+{ TMPersistent }
+
+constructor TMPersistent.Create(AOwner: TPersistent);
+begin
+  inherited Create;
+  Owner := AOwner;
 end;
 
 end.

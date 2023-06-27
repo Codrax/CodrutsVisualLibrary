@@ -39,28 +39,33 @@ requires
   IndyCore;
 
 contains
-  Cod.Button in 'src\Cod.Button.pas',
-  Cod.StarRate in 'src\Cod.StarRate.pas',
-  Cod.SplashScreen in 'src\Cod.SplashScreen.pas',
-  MetroTools in 'src\MetroTools.pas',
-  Cod.Progress in 'src\Cod.Progress.pas',
-  Cod.Slider in 'src\Cod.Slider.pas',
-  CTransparentUI in 'src\CTransparentUI.pas',
-  Cod.LoadIco in 'src\Cod.LoadIco.pas',
-  Cod.Image in 'src\Cod.Image.pas',
-  Cod.StandardIcons in 'src\Cod.StandardIcons.pas',
-  Cod.Labels in 'src\Cod.Labels.pas',
-  Cod.Chart in 'src\Cod.Chart.pas',
-  Cod.CheckBox in 'src\Cod.CheckBox.pas',
-  Cod.ColorWheel in 'src\Cod.ColorWheel.pas',
-  Cod.ColorBright in 'src\Cod.ColorBright.pas',
-  Cod.CPSharedLib in 'src\Cod.CPSharedLib.pas',
-  Cod.ColorBox in 'src\Cod.ColorBox.pas',
-  Cod.Panels in 'src\Cod.Panels.pas',
+  Cod.Visual.Button in 'src\Cod.Visual.Button.pas',
+  Cod.Visual.StarRate in 'src\Cod.Visual.StarRate.pas',
+  Cod.Visual.SplashScreen in 'src\Cod.Visual.SplashScreen.pas',
+  Cod.Visual.Progress in 'src\Cod.Visual.Progress.pas',
+  Cod.Visual.Slider in 'src\Cod.Visual.Slider.pas',
+  Cod.Visual.CTransparentUI in 'src\Cod.Visual.CTransparentUI.pas',
+  Cod.Visual.LoadIco in 'src\Cod.Visual.LoadIco.pas',
+  Cod.Visual.Image in 'src\Cod.Visual.Image.pas',
+  Cod.Visual.StandardIcons in 'src\Cod.Visual.StandardIcons.pas',
+  Cod.Visual.Labels in 'src\Cod.Visual.Labels.pas',
+  Cod.Visual.Chart in 'src\Cod.Visual.Chart.pas',
+  Cod.Visual.CheckBox in 'src\Cod.Visual.CheckBox.pas',
+  Cod.Visual.ColorWheel in 'src\Cod.Visual.ColorWheel.pas',
+  Cod.Visual.ColorBright in 'src\Cod.Visual.ColorBright.pas',
+  Cod.Visual.ColorBox in 'src\Cod.Visual.ColorBox.pas',
+  Cod.Visual.Panels in 'src\Cod.Visual.Panels.pas',
+  Cod.Visual.GlassBlur in 'src\Cod.Visual.GlassBlur.pas',
+  Cod.ColorDialog in 'src\Cod.ColorDialog.pas',
+  Cod.IconPicker in 'src\Cod.IconPicker.pas',
+  Cod.HotKey in 'src\Cod.HotKey.pas',
+  Cod.PrintDlg in 'src\Cod.PrintDlg.pas',
+  Cod.Visual.CPSharedLib in 'src\Cod.Visual.CPSharedLib.pas',
   Cod.Components in 'src\Cod.Components.pas',
-  Cod.GlassBlur in 'src\Cod.GlassBlur.pas';
+  Cod.Visual.Register in 'src\Cod.Visual.Register.pas';
 
 end.
+
 
 
 

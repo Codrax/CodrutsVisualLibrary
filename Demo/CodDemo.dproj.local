@@ -2,8 +2,8 @@
 <BorlandProject>
 	<Transactions>
     <Transaction>2022/09/10 21:32:41.000.834,=D:\Coding Related\My Delphi\Unit1.pas</Transaction>
-    <Transaction>2022/09/10 21:32:53.000.834,D:\Coding Related\My Delphi\(i) Custom Components\Cods Visual Library\Demo\Demo_u.pas=D:\Coding Related\My Delphi\Unit1.pas</Transaction>
-    <Transaction>2022/09/10 21:32:53.000.834,D:\Coding Related\My Delphi\(i) Custom Components\Cods Visual Library\Demo\Demo_u.dfm=D:\Coding Related\My Delphi\Unit1.dfm</Transaction>
-    <Transaction>2022/09/10 21:33:06.000.068,D:\Coding Related\My Delphi\(i) Custom Components\Cods Visual Library\Demo\CodDemo.dproj=D:\Coding Related\My Delphi\Project1.dproj</Transaction>
+    <Transaction>2022/09/10 21:32:53.000.834,D:\Coding Related\My Delphi\Unit1.pas=D:\Coding Related\My Delphi\(i) Custom Components\Cods Visual Library\Demo\Demo_u.pas</Transaction>
+    <Transaction>2022/09/10 21:32:53.000.834,D:\Coding Related\My Delphi\Unit1.dfm=D:\Coding Related\My Delphi\(i) Custom Components\Cods Visual Library\Demo\Demo_u.dfm</Transaction>
+    <Transaction>2022/09/10 21:33:06.000.068,D:\Coding Related\My Delphi\Project1.dproj=D:\Coding Related\My Delphi\(i) Custom Components\Cods Visual Library\Demo\CodDemo.dproj</Transaction>
   </Transactions>
 </BorlandProject>
