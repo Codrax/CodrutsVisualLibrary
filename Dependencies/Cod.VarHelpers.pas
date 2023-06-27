@@ -18,9 +18,10 @@ unit Cod.VarHelpers;
 interface
   uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, IdHTTP,
-  VCL.Graphics, Winapi.ActiveX, URLMon, IOUtils, System.Generics.Collections,
+  VCL.Graphics, Winapi.ActiveX, Winapi.URLMon, IOUtils, System.Generics.Collections,
   Cod.ColorUtils, System.Generics.Defaults, Vcl.Imaging.pngimage,
-  WinApi.GdipObj, WinApi.GdipApi, Win.Registry, Cod.GDI, Cod.Types;
+  WinApi.GdipObj, WinApi.GdipApi, Win.Registry, Cod.GDI, Cod.Types,
+  DateUtils, Cod.Registry;
 
   type
     // Color Helper
@@ -29,6 +30,22 @@ interface
       function ToString: string; overload; inline;
       function ToInteger: integer; overload; inline;
       function ToRGB: CRGB; overload; inline;
+    end;
+
+    // TDateTime Helper
+    TDateTimeHelper = record helper for TDateTime
+    public
+      function ToString: string; overload; inline;
+      function ToInteger: integer; overload; inline;
+
+      function Day: integer;
+      function Month: integer;
+      function Year: integer;
+
+      function Hour: integer;
+      function Minute: integer;
+      function Second: integer;
+      function Millisecond: integer;
     end;
 
     // TArray colection
@@ -47,19 +64,28 @@ interface
 
     TStringArrayHelper = record helper for TArray<string>
     public
+      function AddValue(Value: string): integer;
+      procedure Delete(Index: integer);
       function Count: integer; overload; inline;
+      function Find(Value: string): integer;
       procedure SetToLength(ALength: integer);
     end;
 
     TIntegerArrayHelper = record helper for TArray<integer>
     public
+      function AddValue(Value: integer): integer;
+      procedure Delete(Index: integer);
       function Count: integer; overload; inline;
+      function Find(Value: integer): integer;
       procedure SetToLength(ALength: integer);
     end;
 
     TRealArrayHelper = record helper for TArray<real>
     public
+      function AddValue(Value: real): integer;
+      procedure Delete(Index: integer);
       function Count: integer; overload; inline;
+      function Find(Value: real): integer;
       procedure SetToLength(ALength: integer);
     end;
 
@@ -85,16 +111,13 @@ interface
       procedure GDICircle(Rectangle: TRect; Brush: TGDIBrush; Pen: TGDIPen);
       procedure GDIPolygon(Points: TArray<TPoint>; Brush: TGDIBrush; Pen: TGDIPen);
       procedure GDILine(Line: TLine; Pen: TGDIPen);
-      procedure GDIGraphic(Graphic: TGraphic; Rect: TRect);
+      procedure GDIGraphic(Graphic: TGraphic; Rect: TRect); overload;
+      procedure GDIGraphic(Graphic: TGraphic; Rect: TRect; Angle: integer); overload;
+      procedure GDIGraphicRound(Graphic: TGraphic; Rect: TRect; Round: real);
     end;
 
     // Registry
-    TRegHelper = class helper for TRegistry
-      procedure RenameKey(const OldName, NewName: string);
-      procedure CloneKey(const KeyName: string);
-
-      procedure MoveKeyTo(const OldName, NewKeyPath: string; Delete: Boolean);
-    end;
+    TRegHelper = Cod.Registry.TRegHelper;
 
 implementation
 
@@ -147,6 +170,52 @@ begin
   Result := GetRGB( Self );
 end;
 
+// Date Time
+function TDateTimeHelper.ToString: string;
+begin
+  Result := DateTimeToStr( Self );
+end;
+
+function TDateTimeHelper.ToInteger: integer;
+begin
+  Result := DateTimeToUnix(Self);
+end;
+
+function TDateTimeHelper.Day: integer;
+begin
+  Result := DayOf( Self );
+end;
+
+function TDateTimeHelper.Month: integer;
+begin
+  Result := MonthOf( Self );
+end;
+
+function TDateTimeHelper.Year: integer;
+begin
+  Result := YearOf( Self );
+end;
+
+function TDateTimeHelper.Hour: integer;
+begin
+  Result := HourOf( Self );
+end;
+
+function TDateTimeHelper.Minute: integer;
+begin
+  Result := MinuteOf( Self );
+end;
+
+function TDateTimeHelper.Second: integer;
+begin
+  Result := SecondOf( Self );
+end;
+
+function TDateTimeHelper.Millisecond: integer;
+begin
+  Result := MillisecondOf( Self );
+end;
+
 // TArray Generic Helpers
 
 function TArrayArrayHelper.Count: integer;
@@ -187,6 +256,96 @@ end;
 procedure TRealArrayHelper.SetToLength(ALength: integer);
 begin
   SetLength(Self, ALength);
+end;
+
+function TStringArrayHelper.AddValue(Value: string): integer;
+var
+  AIndex: integer;
+begin
+  AIndex := Length(Self);
+  SetLength(Self, AIndex + 1);
+  Self[AIndex] := Value;
+  Result := AIndex;
+end;
+
+function TIntegerArrayHelper.AddValue(Value: integer): integer;
+var
+  AIndex: integer;
+begin
+  AIndex := Length(Self);
+  SetLength(Self, AIndex + 1);
+  Self[AIndex] := Value;
+  Result := AIndex;
+end;
+
+function TRealArrayHelper.AddValue(Value: real): integer;
+var
+  AIndex: integer;
+begin
+  AIndex := Length(Self);
+  SetLength(Self, AIndex + 1);
+  Self[AIndex] := Value;
+  Result := AIndex;
+end;
+
+procedure TStringArrayHelper.Delete(Index: integer);
+var
+  I: Integer;
+begin
+  for I := Index to High(Self)-1 do
+    Self[I] := Self[I+1];
+
+  SetToLength(Length(Self)-1);
+end;
+
+procedure TIntegerArrayHelper.Delete(Index: integer);
+var
+  I: Integer;
+begin
+  for I := Index to High(Self)-1 do
+    Self[I] := Self[I+1];
+
+  SetToLength(Length(Self)-1);
+end;
+
+procedure TRealArrayHelper.Delete(Index: integer);
+var
+  I: Integer;
+begin
+  for I := Index to High(Self)-1 do
+    Self[I] := Self[I+1];
+
+  SetToLength(Length(Self)-1);
+end;
+
+function TStringArrayHelper.Find(Value: string): integer;
+var
+  I: integer;
+begin
+  Result := -1;
+  for I := Low(Self) to High(Self) do
+    if Self[I] = Value then
+      Exit(I);
+end;
+
+function TIntegerArrayHelper.Find(Value: integer): integer;
+var
+  I: integer;
+begin
+  Result := -1;
+  for I := Low(Self) to High(Self) do
+    if Self[I] = Value then
+      Exit(I);
+end;
+
+function TRealArrayHelper.Find(Value: real): integer;
+var
+  I: integer;
+begin
+  Result := -1;
+  for I := Low(Self) to High(Self) do
+    if Self[I] = Value then
+      Exit(I);
 end;
 
 // TFont
@@ -253,109 +412,17 @@ end;
 
 procedure TCanvasHelper.GDIGraphic(Graphic: TGraphic; Rect: TRect);
 begin
-  DrawGraphic(Self, Graphic, Rect);
+  DrawGraphic(Self, Graphic, Rect, 0);
 end;
 
-{ TRegHelper }
-procedure TRegHelper.RenameKey(const OldName, NewName: string);
+procedure TCanvasHelper.GDIGraphic(Graphic: TGraphic; Rect: TRect; Angle: integer);
 begin
-  Self.MoveKey(OldName, NewName, true);
+  DrawGraphic(Self, Graphic, Rect, Angle);
 end;
 
-procedure TRegHelper.CloneKey(const KeyName: string);
-var
-  CloneNumber: integer;
+procedure TCanvasHelper.GDIGraphicRound(Graphic: TGraphic; Rect: TRect; Round: real);
 begin
-  CloneNumber := 1;
-  repeat
-    inc(CloneNumber);
-  until not Self.KeyExists(KeyName + '(' + inttostr( CloneNumber ) + ')');
-
-  MoveKey(KeyName, KeyName + '(' + inttostr( CloneNumber ) + ')', false);
-end;
-
-procedure TRegHelper.MoveKeyTo(const OldName, NewKeyPath: string; Delete: Boolean);
-var
-  RegistryOld,
-  RegistryNew: TRegistry;
-
-  I: integer;
-
-  ValueNames: TStringList;
-  KeyNames: TStringList;
-
-  procedure MoveValue(SrcKey, DestKey: HKEY; const Name: string);
-  var
-    Len: Integer;
-    OldKey, PrevKey: HKEY;
-    Buffer: PChar;
-    RegData: TRegDataType;
-  begin
-    OldKey := CurrentKey;
-    SetCurrentKey(SrcKey);
-    try
-      Len := GetDataSize(Name);
-      if Len >= 0 then
-      begin
-        Buffer := AllocMem(Len);
-        try
-          Len := GetData(Name, Buffer, Len, RegData);
-          PrevKey := CurrentKey;
-          SetCurrentKey(DestKey);
-          try
-            PutData(Name, Buffer, Len, RegData);
-          finally
-            SetCurrentKey(PrevKey);
-          end;
-        finally
-          FreeMem(Buffer);
-        end;
-      end;
-    finally
-      SetCurrentKey(OldKey);
-    end;
-  end;
-begin
-  /// Attention!
-  /// The NewKeyPath requires a registry path in the same HIVE. This NEEDS to be a
-  /// path in the HIVE, only giving the new Key Name will create a new Key in the
-  /// root of the HIVE!
-
-  ValueNames := TStringList.Create;
-  KeyNames := TStringList.Create;
-
-  RegistryNew := TRegistry.Create( Self.Access );
-  RegistryOld := TRegistry.Create( Self.Access );
-  try
-    // Open Keys
-    RegistryOld.OpenKey( IncludeTrailingPathDelimiter( Self.CurrentPath + OldName ), false );
-    RegistryNew.OpenKey( IncludeTrailingPathDelimiter( NewKeyPath ), True );
-
-    // Index Keys/Values
-    RegistryOld.GetValueNames(ValueNames);
-    RegistryOld.GetKeyNames(KeyNames);
-
-    // Copy Values
-    for I := 1 to ValueNames.Count do
-      MoveValue( RegistryOld.CurrentKey, RegistryNew.CurrentKey,
-                 ValueNames[I - 1] );
-
-    // Copy subkeys
-    for I := 1 to KeyNames.Count do
-      RegistryOld.MoveKeyTo(KeyNames[I - 1],
-                            RegistryNew.CurrentPath + KeyNames[I - 1] + '\',
-                            false);
-  finally
-    // Free Mem
-    RegistryOld.Free;
-    RegistryNew.Free;
-
-    ValueNames.Free;
-    KeyNames.Free;
-
-    if Delete then
-      Self.DeleteKey(OldName);
-  end;
+  DrawGraphicRound(Self, Graphic, Rect, Round);
 end;
 
 end.

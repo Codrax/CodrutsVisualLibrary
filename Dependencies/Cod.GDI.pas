@@ -16,8 +16,8 @@ unit Cod.GDI;
 interface
   uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
-  Vcl.Graphics, Imaging.pngimage, Imaging.GIFImg, Imaging.jpeg, GDIPAPI,
-  GDIPOBJ, Cod.ColorUtils, Cod.Types;
+  Vcl.Graphics, Imaging.pngimage, Imaging.GIFImg, Imaging.jpeg, Winapi.GDIPAPI,
+  Winapi.GDIPOBJ, Cod.ColorUtils, Cod.Types;
 
   type
     // Requirements
@@ -45,7 +45,8 @@ interface
     procedure DrawCircle(Canvas: TCanvas; Rectangle: TRect; Brush: TGDIBrush; Pen: TGDIPen; Buffered: boolean = true);
     procedure DrawPolygon(Canvas: TCanvas; Points: TArray<TPoint>; Brush: TGDIBrush; Pen: TGDIPen; Buffered: boolean = true);
     procedure DrawLine(Canvas: TCanvas; Line: TLine; Pen: TGDIPen; Buffered: boolean = true);
-    procedure DrawGraphic(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Buffered: boolean = true);
+    procedure DrawGraphic(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Angle: integer = 0; Buffered: boolean = true);
+    procedure DrawGraphicRound(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Roundness: real; Buffered: boolean = true);
     procedure GraphicStretchDraw(Canvas: TCanvas; Rect: TRect; Graphic: TGraphic; Opacity: Byte); overload;
     procedure GraphicStretchDraw(Canvas: TCanvas; DestRect, SrcRect: TRect; Bitmap: TBitmap; Opacity: Byte); overload;
     procedure DrawGraphicHighQuality(Canvas: TCanvas; ARect: TRect; Graphic: TGraphic; Opacity: Byte = 255; HighQuality: Boolean = False); overload;
@@ -398,9 +399,9 @@ begin
       finally
         BMP.Free;
       end;
-      Exit;  
+      Exit;
     end;
-    
+
   // Client Draw
   G := TGPGRaphics.Create(Canvas.Handle);
   try
@@ -417,7 +418,7 @@ begin
   end;
 end;
 
-procedure DrawGraphic(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Buffered: boolean);
+procedure DrawGraphic(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Angle: integer; Buffered: boolean);
 var
   G: TGPGRaphics;
   P: TGPImage;
@@ -428,20 +429,81 @@ begin
     begin
       var BMP: TBitMap;
       var R: TRect;
-                                                                      
+
       BMP := TBitMap.Create;
       PrepareBMP(BMP, Rect.Width, Rect.Height);
       try
-        R := Rect;  
+        R := Rect;
         R.Offset(-Rect.Left, -Rect.Top);
-        
-        DrawGraphic( BMP.Canvas, Graphic, R, false);
+
+        DrawGraphic( BMP.Canvas, Graphic, R, 0, false);
 
         Canvas.Draw(Rect.Left, Rect.Top, BMP);
       finally
         BMP.Free;
       end;
-      Exit;  
+      Exit;
+    end;
+
+  // Client Draw
+  G := TGPGRaphics.Create(Canvas.Handle);
+  BitMap := TBitMap.Create;
+  try
+    G.SetSmoothingMode(SmoothingModeHighQuality);
+
+    G.TranslateTransform(Rect.Left + Rect.Width div 2, Rect.Top + Rect.Height div 2);
+    Rect.Offset(-Rect.Left - Rect.Width div 2, -Rect.Top - Rect.Height div 2);
+    BitMap.Assign(Graphic);
+
+    if Angle <> 0 then
+      // Rotate
+      G.RotateTransform(Angle);
+
+    P := TGPBitmap.Create(Bitmap.Handle, Bitmap.Palette);
+    try
+      G.DrawImage(P, MakeRect(Rect));
+    finally
+      P.Free;
+    end;
+
+    // Reset Rotation
+    G.ResetTransform;
+
+    // Canvas Notify
+    if Assigned(Canvas.OnChange) then
+      Canvas.OnChange(Canvas);
+  finally
+    G.Free;
+    BitMap.Free;
+  end;
+end;
+
+procedure DrawGraphicRound(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Roundness: real; Buffered: boolean);
+var
+  G: TGPGRaphics;
+  P: TGPImage;
+  BitMap: TBitMap;
+  RoundPath: TGPGraphicsPath;
+begin
+  // Bitmap Buffered Draw
+  if Buffered then
+    begin
+      var BMP: TBitMap;
+      var R: TRect;
+
+      BMP := TBitMap.Create;
+      PrepareBMP(BMP, Rect.Width, Rect.Height);
+      try
+        R := Rect;
+        R.Offset(-Rect.Left, -Rect.Top);
+
+        DrawGraphicRound( BMP.Canvas, Graphic, R, Roundness, false);
+
+        Canvas.Draw(Rect.Left, Rect.Top, BMP);
+      finally
+        BMP.Free;
+      end;
+      Exit;
     end;
 
   // Client Draw
@@ -454,7 +516,22 @@ begin
 
     P := TGPBitmap.Create(Bitmap.Handle, Bitmap.Palette);
     try
-      G.DrawImage(P, MakeRect(Rect));
+      G.SetClip(MakeRect(Rect));
+      RoundPath := TGPGraphicsPath.Create();
+      try
+        // Add a rounded rectangle to the path
+        RoundPath.AddArc(Rect.Left, Rect.Top, Roundness, Roundness, 180, 90);
+        RoundPath.AddArc(Rect.Right - Roundness, Rect.Top, Roundness, Roundness, 270, 90);
+        RoundPath.AddArc(Rect.Right - Roundness, Rect.Bottom - Roundness, Roundness, Roundness, 0, 90);
+        RoundPath.AddArc(Rect.Left, Rect.Bottom - Roundness, Roundness, Roundness, 90, 90);
+        RoundPath.CloseFigure;
+
+        // Clip & Draw
+        G.SetClip(RoundPath);
+        G.DrawImage(P, MakeRect(Rect));
+      finally
+        RoundPath.Free;
+      end;
     finally
       P.Free;
     end;

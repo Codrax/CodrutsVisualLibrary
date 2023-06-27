@@ -19,7 +19,15 @@ interface
   Vcl.Graphics, Variants, Vcl.Clipbrd, IOUtils, Math, Types;
 
   type
+    // Cardinals
     TCorners = (crTopLeft, crTopRight, crBottomLeft, crBottomRight);
+
+    TCompareResult = (crEqual, crBigger, crSmaller);
+
+    TFileType = (dftText, dftBMP, dftPNG, dftJPEG, dftGIF, dftHEIC, dftTIFF,
+    dftMP3, dftMP4, dftFlac, dftMDI, dftOGG, dftSND, dftM3U8, dftEXE, dftMSI,
+    dftZip, dftGZip, dft7Zip, dftCabinet, dftTAR, dftRAR, dftLZIP, dftISO,
+    dftPDF, dftHLP, dftCHM);
 
     // Graphic ans Canvas
     TRoundRect = record
@@ -74,10 +82,6 @@ interface
     TIntegerList = class;
 
     TIntegerListSortCompare = function(List: TIntegerList; Index1, Index2: Integer): Integer;
-
-    TIntList = class(TObject)
-
-    end;
 
     TIntegerList = class(TObject)
     private
@@ -140,6 +144,9 @@ interface
   function Line(Point1, Point2: TPoint): TLine; overload;
   function Line(X1, Y1, X2, Y2: integer): TLine; overload;
 
+  function CompareItems(Item, ToItem: string): TCompareResult; overload;
+  function CompareItems(Item, ToItem: integer): TCompareResult; overload;
+
   // Utilities
   function DistancePoints(XPos, YPos, X, Y: Real): Real;
   function PointOnLine(X, Y, x1, y1, x2, y2, d: Integer): Boolean;
@@ -149,7 +156,9 @@ interface
   function GetValidRect(Points: TArray<TPoint>): TRect; overload;
   function GetValidRect(Rect: TRect): TRect; overload;
   procedure CenterRectInRect(var ARect: TRect; const ParentRect: TRect);
+  procedure CenterRectAtPoint(var ARect: TRect; const APoint: TPoint);
   function PointInRect(Point: TPoint; Rect: TRect): boolean;
+  procedure ContainRectInRect(var ARect: TRect; const ParentRect: TRect);
 
   { Points }
   function SetPositionAroundPoint(Point: TPoint; Center: TPoint; degree: real; customradius: real = -1): TPoint;
@@ -161,6 +170,7 @@ interface
   // Conversion Functions
   function StringToBoolean(str: string): Boolean;
   function BooleanToString(value: boolean): String;
+  function BooleanToYesNo(value: boolean): String;
   function IconToBitmap(icon: TIcon): TBitMap;
   function IntToStrIncludePrefixZeros(Value: integer; NumbersCount: integer): string;
 
@@ -168,9 +178,12 @@ interface
   function HexToDec(Hex: string): int64;
 
 
-  // Arrays
+  { Arrays }
   function InArray(Value: integer; arrayitem: array of integer): integer; overload;
   function InArray(Value: string; arrayitem: array of string): integer; overload;
+  procedure ShuffleArray(var arr: TArray<Integer>);
+  procedure ArrayAdd(Data: string; var AArray: TArray<string>; CheckDuplicate: boolean = false);
+  procedure ArrayRemove(Data: string; var AArray: TArray<string>; RemoveAll: boolean = true);
 
 implementation
 
@@ -209,6 +222,28 @@ function Line(X1, Y1, X2, Y2: integer): TLine;
 begin
   Result.Point1 := Point(X1, Y1);
   Result.Point2 := Point(X2, Y2);
+end;
+
+function CompareItems(Item, ToItem: string): TCompareResult;
+begin
+  Result := crSmaller;
+
+  if Item > ToItem then
+    Result := crBigger
+      else
+        if Item = ToItem then
+          Result := crEqual;
+end;
+
+function CompareItems(Item, ToItem: integer): TCompareResult; overload;
+begin
+  Result := crSmaller;
+
+  if Item > ToItem then
+    Result := crBigger
+      else
+        if Item = ToItem then
+          Result := crEqual;
 end;
 
 function DistancePoints(XPos, YPos, X, Y: Real): Real;
@@ -294,9 +329,36 @@ begin
                (ParentRect.Height div 2 - ARect.Height div 2) - ARect.Top);
 end;
 
+procedure CenterRectAtPoint(var ARect: TRect; const APoint: TPoint);
+var
+  ACenter: TPoint;
+begin
+  ACenter := ARect.CenterPoint;
+  ARect.Offset(APoint.X-ACenter.X, APoint.Y-ACenter.Y);
+end;
+
 function PointInRect(Point: TPoint; Rect: TRect): boolean;
 begin
   Result := Rect.Contains(Point);
+end;
+
+procedure ContainRectInRect(var ARect: TRect; const ParentRect: TRect);
+var
+  Left, Top, Right, Bottom: integer;
+begin
+  Left := ParentRect.Left - ARect.Left;
+  Top := ParentRect.Top - ARect.Top;
+  Right := ParentRect.Right - ARect.Right;
+  Bottom := ParentRect.Bottom - ARect.Bottom;
+
+  if Left > 0 then
+    ARect.Offset(Left, 0);
+  if Top > 0 then
+    ARect.Offset(0, Top);
+  if Right < 0 then
+    ARect.Offset(Right, 0);
+  if Bottom < 0 then
+    ARect.Offset(0, Bottom);
 end;
 
 function SetPositionAroundPoint(Point: TPoint; Center: TPoint; degree: real; customradius: real = -1): TPoint;
@@ -348,16 +410,20 @@ begin
   else
     r := ACustomRadius;
 
-  cosa := (APoint.X - ACenter.X) / r;
-  sina := (APoint.Y - ACenter.Y) / r;
+  if r <> 0 then
+    begin
+      cosa := (APoint.X - ACenter.X) / r;
+      sina := (APoint.Y - ACenter.Y) / r;
 
-  nsin := sina * dcos + dsin * cosa;
-  ncos := cosa * dcos - sina * dsin;
+
+      nsin := sina * dcos + dsin * cosa;
+      ncos := cosa * dcos - sina * dsin;
 
 
-  // Apply New Properties
-  Result.X := round( ACenter.X + r * ncos );
-  Result.Y := round( ACenter.Y + r * nsin );
+      // Apply New Properties
+      Result.X := round( ACenter.X + r * ncos );
+      Result.Y := round( ACenter.Y + r * nsin );
+    end;
 end;
 
 function PointAngle(APoint: TPoint; ACenter: TPoint; offset: integer): integer;
@@ -384,7 +450,7 @@ end;
 
 function StringToBoolean(str: string): boolean;
 begin
-  if (str = 'true') or (str = '1') or (str = '-1') then
+  if (AnsiLowerCase(str) = 'true') or (str = '1') or (str = '-1') then
     Result := true
   else
     Result := false;
@@ -396,6 +462,14 @@ begin
     Result := 'true'
   else
     Result := 'false'
+end;
+
+function BooleanToYesNo(value: boolean): String;
+begin
+  if value then
+    Result := 'yes'
+  else
+    Result := 'no'
 end;
 
 function IconToBitmap(icon: TIcon): TBitMap;
@@ -435,13 +509,13 @@ begin
   Result := IntToHex(Dec);
 
   for I := 1 to length(Result) do
-      if Result[1] = '0' then
+      if (Result[1] = '0') and (Length(Result) > 2) then
         Result := Result.Remove(0, 1)
       else
         Break;
 
   if Result = '' then
-        Result := '0';
+        Result := '00';
 end;
 
 function HexToDec(Hex: string): int64;
@@ -473,6 +547,57 @@ begin
       Result := I;
       Break;
     end;
+end;
+
+procedure ShuffleArray(var arr: TArray<Integer>);
+var
+  i, j, temp: Integer;
+begin
+  // shuffle the array using Fisher-Yates algorithm
+  for i := Length(arr) - 1 downto 1 do
+  begin
+    j := Random(i + 1); // generate a random index between 0 and i
+    temp := arr[j];
+    arr[j] := arr[i];
+    arr[i] := temp;
+  end;
+end;
+
+procedure ArrayAdd(Data: string; var AArray: TArray<string>; CheckDuplicate: boolean);
+var
+  AIndex: integer;
+    I: Integer;
+begin
+  // Find Exists
+  if CheckDuplicate then
+    for I := 0 to High(AArray) do
+      if Data = AArray[I] then
+        Exit;
+
+  // Add to array
+  AIndex := Length(AArray);
+  SetLength(AArray, AIndex+1);
+
+  AArray[AIndex] := Data;
+end;
+
+procedure ArrayRemove(Data: string; var AArray: TArray<string>; RemoveAll: boolean);
+var
+  I, J: Integer;
+begin
+  // Find Exists
+  for I := 0 to High(AArray) do
+    if Data = AArray[I] then
+      begin
+        for J := I to High(AArray)-1 do
+          AArray[J] := AArray[J+1];
+
+        // Shrink Size
+        SetLength(AArray, Length(AArray)-1);
+
+        if not RemoveAll then
+          Break;
+      end;
 end;
 
 { TRoundRect }
@@ -568,14 +693,6 @@ end;
 
 { TLine }
 
-function TLine.Center: TPoint;
-begin
-  Result := Point( (Point1.X + Point2.X) div 2, (Point1.Y + Point2.Y) div 2);
-end;
-
-
-{ TIntegerList }
-
 procedure TLine.Create(P1, P2: TPoint);
 begin
   Point1 := P1;
@@ -603,6 +720,11 @@ end;
 function TLine.Rect: TRect;
 begin
   Result := GetValidRect(Point1, Point2);
+end;
+
+function TLine.Center: TPoint;
+begin
+  Result := Point( (Point1.X + Point2.X) div 2, (Point1.Y + Point2.Y) div 2);
 end;
 
 { TIntegerList }
@@ -850,5 +972,7 @@ begin
     Result := Result + inttostr( Self[I] ) + ',';
   Result := Copy( Result, 0, Length(Result) - 1 );
 end;
+
+{ THexByte }
 
 end.

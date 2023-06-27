@@ -43,22 +43,31 @@ interface
                  dmCenter3Fill, dmCenterFit, dmNormal, dmTile);
 
     TTextFlag = (tffWordWrap, tffTop, tffVerticalCenter, tffBottom, tffLeft,
-                 tffCenter, tffRight, ttfNoClip);
+                 tffCenter, tffRight, ttfNoClip, tffAuto);
     TTextFlags= set of TTextFlag;
 
   { Text }
-  function GetMaxFontSize(Canvas: TCanvas; Text: string; MaxWidth, MaxHeight: Integer): integer;
+  function GetMaxFontSize(Canvas: TCanvas; Text: string; MaxWidth,
+    MaxHeight: Integer): integer;
+  function GetMaxFontHeight(Canvas: TCanvas; Text: string; ARect: TRect): integer; overload;
+  function GetMaxFontHeight(Canvas: TCanvas; Text: string; MaxWidth,
+    MaxHeight: Integer): integer; overload;
+  (* Font.Height gives a better precision on font size than Font.Size *)
+  function TrimmifyText(Canvas: TCanvas; Text: string; MaxWidth: Integer;
+    AddDots: boolean = true): string;
   function CalcTextWidth(Text: string; Font: TFont): integer; overload;
-  function CalcTextWidth(Text: string; FontName: string; FontSize: integer): integer; overload;
-  procedure DrawTextRect(Canvas: TCanvas; ARect: TRect; Text: string; Flags: TTextFlags; AMargin: integer = 0);
+  function CalcTextWidth(Text: string; FontName: string;
+    FontSize: integer): integer; overload;
+  procedure DrawTextRect(Canvas: TCanvas; ARect: TRect; Text: string;
+    Flags: TTextFlags; AMargin: integer = 0);
+
+  (* Draws inverted colored text *)
+  procedure DrawInvertedText(const ACanvas: TCanvas; const Text: string; const X, Y: integer);
 
   { Lines }
   procedure DrawLine(Canvas: TCanvas; Line: TLine);
-  procedure DrawLineOnPoint(Canvas: TCanvas; APoint: TPoint; AAngle: real; ALength: integer);
-
-  { Rectangles }
-  procedure DrawTransparentRectangle(Canvas: TCanvas; Rect: TRect;
-                                     Color: CRGB; Alpha: Integer); overload;
+  procedure DrawLineOnPoint(Canvas: TCanvas; APoint: TPoint; AAngle: real;
+    ALength: integer);
 
   { Round Rect }
   procedure DrawRoundRect(Canvas: TCanvas; RndRect: TRoundRect);
@@ -70,14 +79,21 @@ interface
   procedure GradVertical(Canvas:TCanvas; Rect:TRect; FromColor, ToColor:TColor);
   function CanvasToBitmap(Canvas: TCanvas): TBitMap;
   function RemoveColor(imgsrc: TBitMap; color: TColor): TBitMap;
-  procedure DrawImageInRect(Canvas: TCanvas; Rect: TRect; Image: TGraphic; DrawMode: TDrawMode = dmFill; ImageMargin: integer = 0);
+  procedure DrawImageInRect(Canvas: TCanvas; Rect: TRect; Image: TGraphic;
+    DrawMode: TDrawMode = dmFill; ImageMargin: integer = 0;
+    ClipImage: boolean = false);
   function GetDrawModeRects(Rect: TRect; Image: TGraphic; DrawMode:
-            TDrawMode = dmFill; ImageMargin: integer = 0): TArray<TRect>; overload;
+    TDrawMode = dmFill; ImageMargin: integer = 0): TArray<TRect>; overload;
   function GetDrawModeRect(Rect: TRect; Image: TGraphic; DrawMode:
-            TDrawMode = dmFill; ImageMargin: integer = 0): TRect; overload;
+    TDrawMode = dmFill; ImageMargin: integer = 0): TRect; overload;
+
+  { Inversion Draw }
+  procedure StretchInvertedMask(Source: TBitMap; Destination: TCanvas; DestRect: TRect); overload;
+  procedure StretchInvertedMask(Source: TCanvas; Destination: TCanvas; DestRect: TRect); overload;
 
   { Screen }
-  procedure QuickScreenShot(var Bild: TBitMap);
+  procedure QuickScreenShot(var BitMap: TBitMap; Monitor: integer = -2);
+  procedure QuickScreenShotEx(var Bild: TBitMap);
   procedure ScreenShotApplication(var BitMap: TBitMap; ApplicationCapton: string = 'Program Manager');
 
   { Graphics }
@@ -90,7 +106,8 @@ interface
 
   { Object Draw }
   function MakePent(X, Y, L : integer) : TPent;
-  procedure MakeStar(Canvas : TCanvas; cX, cY, size : integer; Colour : TColor; bordersize: integer = 2; bordercolor: TColor =clBlack);
+  procedure MakeStar(Canvas : TCanvas; cX, cY, size : integer; Colour : TColor;
+    bordersize: integer = 2; bordercolor: TColor =clBlack);
   procedure DrawPentacle(Canvas : TCanvas; Pent : TPent);
 
 
@@ -116,6 +133,60 @@ begin
   until ((Ext.cx <= MaxWidth) and (Ext.cy <= MaxHeight)) or (Canvas.Font.Size = 1);
 
   Result := Canvas.Font.Size;
+end;
+
+function GetMaxFontHeight(Canvas: TCanvas; Text: string; ARect: TRect): integer;
+begin
+  Result := GetMaxFontHeight(Canvas, Text, ARect.Width, ARect.Height);
+end;
+
+function GetMaxFontHeight(Canvas: TCanvas; Text: string; MaxWidth, MaxHeight: Integer): integer;
+var
+  Ext: TSize;
+begin
+  Result := 0;
+  if Text = '' then
+    Exit;
+
+  Canvas.Font.Height := -10;
+  repeat
+    Canvas.Font.Height := Canvas.Font.Height - 1;
+    Ext := Canvas.TextExtent(Text);
+  until ((Ext.cx >= MaxWidth) or (Ext.cy >= MaxHeight));
+  repeat
+    Canvas.Font.Height := Canvas.Font.Height + 1;
+    Ext := Canvas.TextExtent(Text);
+  until ((Ext.cx <= MaxWidth) and (Ext.cy <= MaxHeight)) or (Canvas.Font.Height = 1);
+
+  Result := Canvas.Font.Height;
+end;
+
+function TrimmifyText(Canvas: TCanvas; Text: string; MaxWidth: Integer; AddDots: boolean): string;
+const
+  DOTS = '...';
+var
+  DotWidth: integer;
+begin
+  with Canvas do
+    if TextWidth(Text) > MaxWidth then
+      begin
+        if AddDots then
+          DotWidth := TextWidth(DOTS)
+        else
+          DotWidth := 0;
+
+        repeat
+          Text := Copy(Text, 1, Length(Text) - 1);
+        until (TextWidth(Text) + DotWidth <= MaxWidth) or (Length(Text) < 2);
+
+        while Text[High(Text)] = ' ' do
+          Text := Copy(Text, 1, Length(Text) - 1);
+
+        if AddDots then
+          Result := Text + DOTS;
+      end
+    else
+      Result := Text;
 end;
 
 function CalcTextWidth(Text: string; Font: TFont): integer;
@@ -162,6 +233,12 @@ begin
   // Ignore
   if Text = '' then
     Exit;
+
+  if tffAuto in Flags then
+    begin
+      if Canvas.TextWidth(Text) > ARect.Width then
+        Flags := Flags + [tffWordWrap];
+    end;
 
   if tffWordWrap in Flags then
     begin
@@ -273,6 +350,23 @@ begin
     end;
 end;
 
+procedure DrawInvertedText(const ACanvas: TCanvas; const Text: string; const X, Y: integer);
+begin
+  with TBitmap.Create do
+    try
+      Canvas.Font.Assign(ACanvas.Font);
+      with Canvas.TextExtent(Text) do
+        SetSize(cx, cy);
+      Canvas.Brush.Color := clBlack;
+      Canvas.FillRect(Rect(0, 0, Width, Height));
+      Canvas.Font.Color := clWhite;
+      Canvas.TextOut(0, 0, Text);
+      BitBlt(ACanvas.Handle, X, Y, Width, Height, Canvas.Handle, 0, 0, SRCINVERT);
+    finally
+      Free;
+    end;
+end;
+
 procedure DrawLine(Canvas: TCanvas; Line: TLine);
 begin
   with Canvas do begin
@@ -290,34 +384,6 @@ begin
   Line.Point2 := PointAroundCenter(APoint, AAngle - 90, ALength div 2);
 
   DrawLine(Canvas, Line);
-end;
-
-procedure DrawTransparentRectangle(Canvas: TCanvas; Rect: TRect;
-  Color: CRGB; Alpha: Integer);
-var
-  X: BYTE;
-  Y: BYTE;
-  C: TColor;
-  R, G, B: Integer;
-begin
- for Y := Rect.Top to Rect.Bottom - 1 do
-    for X := Rect.Left to Rect.Right - 1 do
-    begin
-      C := Canvas.Pixels[X, Y];
-      R := Round(
-        0.01 * (Alpha * GetRValue(C) + (100 - Alpha) * Color.R)
-      );
-
-      G := Round(
-        0.01 * (Alpha * GetGValue(C) + (100 - Alpha) * Color.G)
-      );
-
-      B := Round(
-        0.01 * (Alpha * GetBValue(C) + (100 - Alpha) * Color.B)
-      );
-
-      Canvas.Pixels[X, Y] := RGB(R, G, B);
-    end;
 end;
 
 procedure DrawRoundRect(Canvas: TCanvas; RndRect: TRoundRect);
@@ -650,8 +716,16 @@ function GetDrawModeRects(Rect: TRect; Image: TGraphic; DrawMode: TDrawMode; Ima
 var
   A, B, C: real;
   TMPRect: TRect;
-  I, W, H: Integer;
+  W, H: Integer;
 begin
+  // Empty Image
+  if Image.Empty then
+    Exit;
+
+  // Shrink Margins
+  Rect.Inflate(-ImageMargin, -ImageMargin);
+
+  // Load
   SetLength(Result, 1);
   if Image <> nil then
   case DrawMode of
@@ -801,16 +875,6 @@ begin
       until (A >= Rect.Height);
     end;
   end;
-
-  if ImageMargin <> 0 then
-    for I := 0 to High( Result ) do
-      with Result[I] do
-        begin
-          Left := Left + ImageMargin;
-          Top := Top + ImageMargin;
-          Right := Right - ImageMargin;
-          Bottom := Bottom - ImageMargin;
-        end;
 end;
 
 function GetDrawModeRect(Rect: TRect; Image: TGraphic; DrawMode: TDrawMode; ImageMargin: integer): TRect;
@@ -818,18 +882,100 @@ begin
   Result := GetDrawModeRects(Rect, Image, DrawMode, ImageMargin)[0];
 end;
 
-procedure DrawImageInRect(Canvas: TCanvas; Rect: TRect; Image: TGraphic; DrawMode: TDrawMode; ImageMargin: integer);
+procedure DrawImageInRect(Canvas: TCanvas; Rect: TRect; Image: TGraphic; DrawMode: TDrawMode; ImageMargin: integer; ClipImage: boolean);
 var
   Rects: TArray<TRect>;
   I: integer;
+  Bitmap: TBitMap;
+  FRect: TRect;
 begin
-  Rects := GetDrawModeRects(Rect, Image, DrawMode, ImageMargin);
+  // Shrink Margins
+  Rect.Inflate(-ImageMargin, -ImageMargin);
 
-  for I := 0 to High( Rects ) do
-    Canvas.StretchDraw( Rects[I], Image, 255 );
+  // Get Rectangles
+  Rects := GetDrawModeRects(Rect, Image, DrawMode, 0{Margins already defalted});
+
+  if not ClipImage then
+    // Standard Draw
+    begin
+      for I := 0 to High( Rects ) do
+        Canvas.StretchDraw( Rects[I], Image, 255 );
+    end
+  else
+    // Clip Image Drw
+    begin
+      for I := 0 to High(Rects) do
+        begin
+          Bitmap := TBitMap.Create;
+          try
+            FRect := Rects[I];
+            FRect.Offset( -Rect.Left, -Rect.Top );
+
+            Bitmap.Width := Rect.Width;
+            Bitmap.Height := Rect.Height;
+
+            Bitmap.Canvas.StretchDraw(FRect, Image, 255);
+
+            Canvas.StretchDraw(Rect, BitMap, 255)
+            //Canvas.Draw(Rect.Top, Rect.Left, BitMap);
+          finally
+            BitMap.Free;
+          end;
+        end;
+    end;
 end;
 
-procedure QuickScreenShot(var Bild: TBitMap);
+procedure StretchInvertedMask(Source: TCanvas; Destination: TCanvas; DestRect: TRect);
+begin
+  BitBlt(Destination.Handle, DestRect.Left, DestRect.Top, DestRect.Width, DestRect.Height,
+    Source.Handle, 0, 0, SRCINVERT);
+end;
+
+procedure StretchInvertedMask(Source: TBitMap; Destination: TCanvas; DestRect: TRect);
+begin
+  StretchInvertedMask(Source.Canvas, Destination, DestRect);
+end;
+
+procedure QuickScreenShot(var BitMap: TBitMap; Monitor: integer);
+var
+  C: TCanvas;
+  R: TRect;
+begin
+  /// PARAMETER VALUES               ///
+  ///                                ///
+  /// -2 All Monitors (Default)      ///
+  ///                                ///
+  /// -1 Default Monitor             ///
+  ///                                ///
+  ///  >= 0 Monitor Index            ///
+  ///                                ///
+
+  case Monitor of
+    -2: R := Rect(Screen.DesktopRect.Left, Screen.DesktopRect.Top, Screen.DesktopRect.Right, Screen.DesktopRect.Bottom);
+
+    -1: R := Rect(Screen.PrimaryMonitor.BoundsRect.Left, Screen.PrimaryMonitor.BoundsRect.Top,
+            Screen.PrimaryMonitor.BoundsRect.Right, Screen.PrimaryMonitor.BoundsRect.Bottom);
+
+    else R := Rect(Screen.Monitors[Monitor].BoundsRect.Left, Screen.Monitors[Monitor].BoundsRect.Top,
+            Screen.Monitors[Monitor].BoundsRect.Right, Screen.Monitors[Monitor].BoundsRect.Bottom);
+  end;
+
+
+
+  BitMap.Width := R.Width;
+  BitMap.Height := R.Height;
+
+  C := TCanvas.Create;
+  try
+    C.Handle := GetDC(0);
+
+    BitMap.Canvas.CopyRect( BitMap.Canvas.ClipRect, C, R );
+  finally
+    C.Free;
+  end;
+end;
+
+procedure QuickScreenShotEx(var Bild: TBitMap);
 var
   c: TCanvas;
   r: TRect;

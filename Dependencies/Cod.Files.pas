@@ -18,7 +18,8 @@ unit Cod.Files;
 interface
   uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, IOUtils, ShellAPI, Vcl.Forms, Cod.WinRegister, ComObj;
+  Vcl.Graphics, IOUtils, ShellAPI, Vcl.Forms, Cod.Registry, ComObj, Math,
+  Registry, Cod.MesssageConst;
 
   type
     // Disk Item
@@ -26,6 +27,8 @@ interface
 
     TFileAttribute = (atrHidden, atrReadOnly, atrSysFile, atrCompressed, atrEncrypted);
     TFileAttributes = set of TFileAttribute;
+
+    TFileDateType = (fdtCreate, fdtModify, fdfAccess);
 
     TAppDataType = (adtLocal, adtRoaming, adtLocalLow);
 
@@ -79,7 +82,7 @@ interface
       procedure Load(foldername: string; restrictinfo: boolean = false);
     end;
 
-    //Disk Item
+    // Disk Item
     CDiskItem = class
       constructor Create;
       destructor Destroy; override;
@@ -107,11 +110,21 @@ interface
 
   (* Path *)
   function ReplaceWinPath(SrcString: string): string;
+
+  function ReplaceEnviromentVariabiles(SrcString: string): string;
+  function ReplaceShellLocations(SrcString: string): string;
+
+  function GetSystemDrive: string;
+  function GetSystemRoot: string;
+
+  function GetPathDepth(Path: string): integer;
+
   function GetUserShellLocation(ShellLocation: TUserShellLocation): string;
   function GetPathInAppData(appname: string; codsoft: boolean = true;
                             create: boolean = true;
                             foldertype: TAppDataType = adtLocal): string;
   function FileExtension(FileName: string; includeperiod: boolean = true): string;
+  function ValidateFileName(AString: string): string;
 
   (* Redeclared *)
   procedure RecycleFile(Path: string; Flags: TFileIOFlags = [fioAllowUndo]);
@@ -123,8 +136,16 @@ interface
   procedure MoveDiskItem(Source: string; Destination: string; Flags: TFileIOFlags = [fioAllowUndo]);
   procedure CopyDiskItem(Source: string; Destination: string; Flags: TFileIOFlags = [fioAllowUndo, fioNoConfirMakeDir]);
 
+  (* Volumes *)
+  procedure GetDiskSpace(const Disk: string; var FreeBytes, TotalBytes, TotalFreeBytes: int64);
+
+  (* File Information *)
+  function IsFileInUse(const FileName: string): Boolean;
+  function GetFileDate(const FileName: string; AType: TFileDateType): TDateTime;
+  procedure SetFileDate(const FileName: string; AType: TFileDateType; NewDate: TDateTime);
+
   (* Size *)
-  function SizeInString(size: int64): string;
+  function SizeInString(Size: int64; MaxDecimals: cardinal = 2): string;
 
   function GetFolderSize(Path: string): int64;
   function GetFolderSizeInStr(path: string): string;
@@ -144,6 +165,7 @@ interface
   // Utilities
   function GetNTVersion: single;
   function GetUserNameString: string;
+  function GetComputerNameString: string;
 
 implementation
 
@@ -279,55 +301,195 @@ begin
   end;
 end;
 
-function ReplaceWinPath(SrcString: string): string;
+procedure GetDiskSpace(const Disk: string; var FreeBytes, TotalBytes, TotalFreeBytes: int64);
 var
-  RFlags: TReplaceFlags;
+  RootPath: PChar;
+  AFreeBytes, ATotalBytes, ATotalFreeBytes: ULARGE_INTEGER;
 begin
-  RFlags := [rfReplaceAll, rfIgnoreCase];
+  RootPath := PChar(Disk);
+  if not SHGetDiskFreeSpace(RootPath, AFreeBytes, ATotalBytes, ATotalFreeBytes) then
+    RaiseLastOSError;
+
+  FreeBytes := AFreeBytes.QuadPart;
+  TotalBytes := ATotalBytes.QuadPart;
+  TotalFreeBytes := ATotalFreeBytes.QuadPart;
+end;
+
+function IsFileInUse(const FileName: string): Boolean;
+var
+  HFileRes: HFILE;
+begin
+  Result := False;
+  HFileRes := CreateFile(PChar(FileName), GENERIC_READ or GENERIC_WRITE, 0, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+  if HFileRes = INVALID_HANDLE_VALUE then
+  begin
+    if GetLastError = ERROR_SHARING_VIOLATION then
+      Result := True;
+  end
+  else
+  begin
+    CloseHandle(HFileRes);
+  end;
+end;
+
+function GetFileDate(const FileName: string; AType: TFileDateType): TDateTime;
+begin
+  if NOT fileexists(FileName) then
+    Exit(0);
+
+  // Get by Type
+  case AType of
+    fdtCreate: Result := TFile.GetCreationTime(FileName);
+    fdtModify: Result := TFile.GetLastWriteTime(FileName);
+    fdfAccess: Result := TFile.GetLastAccessTime(FileName);
+    else Result := 0;
+  end;
+end;
+
+procedure SetFileDate(const FileName: string; AType: TFileDateType; NewDate: TDateTime);
+begin
+  if NOT fileexists(FileName) then
+    Exit;
+
+  // Get by Type
+  case AType of
+    fdtCreate: TFile.SetCreationTime(FileName, NewDate);
+    fdtModify: TFile.SetLastWriteTime(FileName, NewDate);
+    fdfAccess: TFile.SetLastAccessTime(FileName, NewDate);
+  end;
+end;
+
+function ReplaceWinPath(SrcString: string): string;
+begin
+  Result := SrcString;
+
+  Result := ReplaceShellLocations(Result);
+  Result := ReplaceEnviromentVariabiles(Result);
+end;
+
+function ReplaceEnviromentVariabiles(SrcString: string): string;
+const
+  ENV = '%';
+var
+  PStart, PEnd: integer;
+  SContain, SResult: string;
+  Valid: boolean;
+begin
+  // Initialise
+  PEnd := 1;
 
   Result := SrcString;
 
-  // Remove "
-  Result := Result.Replace('"', '');
+  repeat
+    // Get Positions
+    PStart := Pos( ENV, SrcString, PEnd );
+    PEnd := Pos( ENV, SrcString, PStart + 1 );
 
-  if GetNTVersion < 6 then
-    begin
-      // Windows Xp, 9X and below
-      Result := StringReplace(Result, '%AppData%', 'C:\Documents and Settings\' + GetUserNameString + '\AppData', RFlags);
-      Result := StringReplace(Result, '%LocalAppData%', 'C:\Documents and Settings\' + GetUserNameString + '\AppData', RFlags);
-      Result := StringReplace(Result, '%Public%', 'C:\Documents and Settings\All Users', RFlags);
-      Result := StringReplace(Result, '%Temp%', 'C:\Documents and Settings\' + GetUserNameString + '\Local Settings\Temp', RFlags);
-      Result := StringReplace(Result, '%Tmp%', 'C:\Documents and Settings\' + GetUserNameString + '\Local Settings\Temp', RFlags);
-      Result := StringReplace(Result, '%UserProfile%', 'C:\Documents and Settings\' + GetUserNameString, RFlags);
-      Result := StringReplace(Result, '%HomePath%', 'C:\Documents and Settings\' + GetUserNameString, RFlags);
-    end
-  else
-    begin
-      // Windows Vista 2008 and above
-      Result := StringReplace(Result, '%AppData%', 'C:\Users' + GetUserNameString + '\AppData\Roaming', RFlags);
-      Result := StringReplace(Result, '%LocalAppData%', 'C:\Users\' + GetUserNameString + '\AppData\Local', RFlags);
-      Result := StringReplace(Result, '%Public%', 'C:\Users\Public', RFlags);
-      Result := StringReplace(Result, '%Temp%', 'C:\Users\' + GetUserNameString + '\AppData\Local\Temp', RFlags);
-      Result := StringReplace(Result, '%Tmp%', 'C:\Users\' + GetUserNameString + '\AppData\Local\Temp', RFlags);
-      Result := StringReplace(Result, '%HomePath%', 'C:\Users\' + GetUserNameString + '\', RFlags);
-      Result := StringReplace(Result, '%UserProfile%', 'C:\Users\' + GetUserNameString + '\', RFlags);
-    end;
+    // Validate
+    Valid := (PStart > 0) and (PEnd > 0);
 
-  Result := StringReplace(Result, '%AllUsersProfile%', 'C:\ProgramData', RFlags);
-  Result := StringReplace(Result, '%CommonProgramFiles%', 'C:\Program Files\Common Files', RFlags);
-  Result := StringReplace(Result, '%CommonProgramFiles(x86)%', 'C:\Program Files (x86)\Common Files', RFlags);
-  Result := StringReplace(Result, '%HomeDrive%', 'C:\', RFlags);
-  Result := StringReplace(Result, '%ProgramData%', 'C:\ProgramData', RFlags);
-  Result := StringReplace(Result, '%ProgramFiles%', 'C:\Program Files', RFlags);
-  Result := StringReplace(Result, '%ProgramFiles(x86)%', 'C:\Program Files (x86)', RFlags);
-  Result := StringReplace(Result, '%SystemDrive%', 'C:', RFlags);
-  Result := StringReplace(Result, '%SystemRoot%', 'C:\Windows', RFlags);
-  Result := StringReplace(Result, '%OneDrive%', 'C:\Users\' + GetUserNameString + '\Onedrive\', RFlags);
-  Result := StringReplace(Result, '%OneDriveConsumer%', 'C:\Users\' + GetUserNameString + '\Onedrive\', RFlags);
+    // Replace
+    if Valid then
+      begin
+        SContain := Copy( SrcString, PStart, PEnd - PStart + 1 );
 
-  // Custom additions
-  Result := StringReplace(Result, '%WindowsApps%', 'C:\Program Files\WindowsApps', RFlags);
-  Result := StringReplace(Result, '%UserWindowsApps%', 'C:\Users\' + GetUserNameString + '\AppData\Local\Microsoft\WindowsApps\', RFlags);
+        SResult := GetEnvironmentVariable( SContain.Replace(ENV, '') );
+
+        if SResult <> '' then
+          Result := StringReplace( Result, SContain, SResult, [rfIgnoreCase] );
+      end;
+
+  until not Valid;
+end;
+
+function ReplaceShellLocations(SrcString: string): string;
+const
+  GLOBAL_SHELL = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\';
+  USER_SHELL = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders\';
+
+  SHELL_BEGIN = 'shell:';
+var
+  R: TRegistry;
+
+  Items_Global,
+  Items_User: TStringList;
+  I: Integer;
+
+  IName,
+  IValue: string;
+begin
+  Result := SrcString;
+
+  // No Val
+  if Pos(SHELL_BEGIN, Result) = 0 then
+    Exit;
+
+  // Create
+  R := TRegistry.Create( KEY_READ );
+
+  Items_Global := TStringList.Create;
+  Items_User := TStringList.Create;
+  try
+    // Read possibile values for global
+    R.RootKey := HKEY_LOCAL_MACHINE;
+    R.OpenKeyReadOnly( GLOBAL_SHELL );
+    R.GetValueNames(Items_Global);
+
+    // Replace Items
+    for I := 0 to Items_Global.Count - 1 do
+      begin
+        IName := AnsiLowerCase(Items_Global[I]);
+
+        if Pos(SHELL_BEGIN + IName, AnsiLowerCase(Result)) <> 0 then
+          begin
+            // Read Value
+            IValue := R.ReadString( IName );
+
+            Result := StringReplace( Result, SHELL_BEGIN + IName, IValue, [rfIgnoreCase, rfReplaceAll] );
+          end;
+      end;
+
+    // Read possible values for user
+    R.RootKey := HKEY_CURRENT_USER;
+    R.OpenKeyReadOnly( USER_SHELL );
+    R.GetValueNames(Items_User);
+
+    // Replace Items
+    for I := 0 to Items_User.Count - 1 do
+      begin
+        IName := AnsiLowerCase(Items_User[I]);
+
+        if Pos(SHELL_BEGIN + IName, AnsiLowerCase(Result)) <> 0 then
+          begin
+            // Read Value
+            IValue := R.ReadString( IName );
+
+            Result := StringReplace( Result, SHELL_BEGIN + IName, IValue, [rfIgnoreCase, rfReplaceAll] );
+          end;
+      end;
+
+  finally
+    Items_Global.Free;
+    Items_User.Free;
+
+    R.Free;
+  end;
+end;
+
+function GetSystemDrive: string;
+begin
+  Result := ReplaceEnviromentVariabiles( '%SYSTEMDRIVE%' );
+end;
+
+function GetSystemRoot: string;
+begin
+  Result := ReplaceEnviromentVariabiles( '%SYSTEMROOT%' );
+end;
+
+function GetPathDepth(Path: string): integer;
+begin
+  Path := IncludeTrailingPathDelimiter(Path);
+  Result := Path.CountChar('\');
 end;
 
 function GetAttributes(Path: string): TFileAttributes;
@@ -456,9 +618,23 @@ var
 begin
  nSize := 1024;
  SetLength(Result, nSize);
+
+ // Error
  if GetUserName(PChar(Result), nSize) then
    SetLength(Result, nSize-1)
  else
+   RaiseLastOSError;
+end;
+
+function GetComputerNameString: string;
+var
+  nSize: DWord;
+begin
+ nSize := 1024;
+ SetLength(Result, nSize);
+
+ if not GetComputerName(PChar(Result), nSize) then
+   // Error
    RaiseLastOSError;
 end;
 
@@ -467,17 +643,15 @@ function GetPathInAppData(appname: string; codsoft,
 begin
   if GetNTVersion < 6 then
     // Windows Xp and below
-    result := 'C:\Documents and Settings\' + GetUserNameString + '\Application Data\'
+    result := GetSystemDrive + '\Documents and Settings\' + GetUserNameString + '\Application Data\'
       else
+        // Windows Vista and above
         begin
-          // Windows Vista and above
-          result := 'C:\Users\' + GetUserNameString + '\AppData\';
-
           // Local, Roaming & Low
           case foldertype of
-            adtLocal: result := result + 'Local\';
-            adtRoaming: result := result + 'Roaming\';
-            adtLocalLow: result := result + 'LocalLow\';
+            adtLocal: result := ReplaceWinPath('%LOCALAPPDATA%\');
+            adtRoaming: result := ReplaceWinPath('%APPDATA%\');
+            adtLocalLow: result := ReplaceWinPath('%userprofile%\AppData\LocalLow\');
           end;
         end;
 
@@ -499,6 +673,19 @@ begin
 
   if not includeperiod then
     Result := Copy( Result, 2, Length( Result ) );
+end;
+
+function ValidateFileName(AString: string): string;
+var
+  x: integer;
+const
+  IllegalCharSet: TSysCharSet =
+    ['|','<','>','\','^','+','=','?','/','[',']','"',';',',','*'];
+begin
+  for x := 1 to Length(AString) do
+    if CharInSet(AString[x], IllegalCharSet) then
+      AString[x] := '_';
+  Result := AString;
 end;
 
 function GetFolderSize( Path: string ): int64;
@@ -534,18 +721,31 @@ begin
     Result := 'NaN';
 end;
 
-function SizeInString(size: int64): string;
+function SizeInString(Size: int64; MaxDecimals: cardinal): string;
+var
+  Decim: integer;
+  DivValue: integer;
 begin
-  // Calculate in MB not Mb
-  case size of
-    0..1023: Result := inttostr(size) + ' B'; // B
-    1024..1048575: Result := inttostr(trunc(size/1024)) + ' KB'; // KB
-    1048576..1073741823: Result := inttostr(trunc(size/1048576)) + ' MB'; // BM
+  Decim := Trunc( Power( 10, MaxDecimals ) );
+
+  // Get Div Value
+  case Abs( size ) of
+    0..1023: DivValue := 0; // B
+    1024..1048575: DivValue := 1; // KB
+    1048576..1073741823: DivValue := 2; // MB
+    else DivValue := 3;
   end;
-  if size > 1073741824 then
-    Result := floattostr((trunc((size/1073741824)*10))/10) + ' GB'; // GB
-  if size < 0 then
-    Result := 'Err';
+
+  // Div
+  Result := FloatToStr( Trunc(Size / Power( 1024, DivValue) * Decim ) / Decim ) ;
+
+  // Measurement
+  case DivValue of
+    0: Result := Concat( Result, ' ', 'B' );
+    1: Result := Concat( Result, ' ', 'KB' );
+    2: Result := Concat( Result, ' ', 'MB' );
+    3: Result := Concat( Result, ' ', 'GB' );
+  end;
 end;
 
 function GetFileSize(FileName: WideString): Int64;
@@ -564,7 +764,7 @@ begin
   if FileExists(fileName) then begin
     Result := SizeInString(GetFileSize(filename));
   end else
-    Result := 'NaN';
+    Result := NOT_NUMBER;
 end;
 
 { CFileItem }
@@ -665,6 +865,7 @@ end;
 function GetUserShellLocation(ShellLocation: TUserShellLocation): string;
 var
   RegString, RegValue: string;
+  Registry: TWinRegistry;
 begin
   case ShellLocation of
     shlUser: Exit( ReplaceWinPath('%USERPROFILE%') );
@@ -683,7 +884,12 @@ begin
     shlDownloads: RegValue := '{374DE290-123F-4565-9164-39C4925E467B}';
   end;
 
-  RegString := WinReg.GetStringValue(RegValue, 'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders', HKEY_CURRENT_USER, false);
+  Registry := TWinRegistry.Create;
+  try
+    RegString := Registry.GetStringValue('HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders', RegValue);
+  finally
+    Registry.Free;
+  end;
 
   Result := ReplaceWinPath(RegString);
 end;

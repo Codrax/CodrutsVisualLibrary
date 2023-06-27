@@ -19,13 +19,26 @@ interface
   uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
   Vcl.Graphics, Vcl.Controls, Registry, Vcl.Dialogs, Vcl.Forms, Vcl.StdCtrls,
-  Vcl.Styles, Vcl.Themes, UITypes, Types, Winapi.shlobj, Cod.WinRegister, Math,
+  Vcl.Styles, Vcl.Themes, UITypes, Types, Winapi.shlobj, Cod.Registry, Math,
   IOUtils, ActiveX, ComObj, Variants, ShellApi, Cod.ColorUtils,
-  System.TypInfo, Imaging.pngimage, PngFunctions, PsApi, Cod.Files, Cod.Types,
-  Cod.StringUtils;
+  System.TypInfo, Vcl.Imaging.pngimage, PngFunctions, PsApi, Cod.Files, Cod.Types,
+  Cod.StringUtils, Winapi.Wbem, System.ImageList, Cod.MesssageConst;
 
   type
+    TWinArhitecture = (wa32bit, wa64bit);
     TWinVersion = (wvnWin2000, wvnWinXp, wvnXp64, wvnVista2008, wvnWin72008R2, wvnWin8, wvnWin10);
+
+    TWinUX = (wuxActionCenter, wuxNotifications, wuxCalculator, wuxStore,
+    wuxSupport, wuxMaps, wuxNetwork, wuxCast, wuxWifi, wuxProject,
+    wuxBluetooth, wuxClock, wuxXbox, wuxMediaPlayer, wuxWeather,
+    wuxTaskSwitch, wuxSettings, wuxScreenClip, wuxPhotos, wuxPrintQueue,
+    wuxWinDefender, wuxStartMenu);
+
+    TWinSettingPage = (wspHome, wspFlightMode, wspBluetooth, wspCellular,
+    wspAccounts, wspLanguage, wspLocation, wspLockScreen, wspHotspot,
+    wspNotifications, wspPower, wspPrivacy, wspDisplay, wspWifi,
+    wspWorkplace);
+
     { If the number of attributes if ever changed, it is required to update the
     write atttributes procedure with the new number in mind!! }
 
@@ -50,25 +63,24 @@ interface
     end;
 
 const
-  superspr : TArray<String> = ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹','⁺','⁻','⁼','⁽','⁾', '⁄','ᵃ', 'ᵇ', 'ᶜ', 'ᵈ', 'ᵉ', 'ᶠ', 'ᵍ', 'ʰ', 'ⁱ', 'ʲ', 'ᵏ', 'ˡ', 'ᵐ', 'ⁿ', 'ᵒ', 'ᵖ', 'q', 'ʳ', 'ˢ', 'ᵗ', 'ᵘ', 'ᵛ', 'ʷ', 'ˣ', 'ʸ', 'ᶻ', 'ᴬ', 'ᴮ', 'C', 'ᴰ', 'ᴱ', 'F', 'ᴳ', 'ᴴ', 'ᴵ', 'ᴶ', 'ᴷ', 'ᴸ', 'ᴹ', 'ᴺ', 'ᴼ', 'ᴾ', 'Q', 'ᴿ', 'S', 'ᵀ', 'ᵁ', 'ⱽ', 'ᵂ', 'X', 'Y', 'Z'];
-  subspr : TArray<String> = ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉','+','-','=','(',')', '⁄', 'ₐ', 'b', 'c', 'd', 'ₑ', 'f', 'g', 'ₕ', 'ᵢ', 'j', 'ₖ', 'ₗ', 'ₘ', 'ₙ', 'ₒ', 'ₚ', 'q', 'ᵣ', 'ₛ', 'ₜ', 'ᵤ', 'ᵥ', 'w', 'ₓ', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+  USER_PROFILE_PICTURES_LOCATION = '%PUBLIC%\AccountPictures\';
 
   { Forms }
   procedure CenterFormInForm(form, primaryform: TForm; alsoopen: boolean = false);
   procedure CenterFormOnScreen(form: TForm);
+  procedure ChangeMainForm(NewForm: TForm);
   function MouseAboveForm(form: TForm): boolean;
 
   { Icons }
   procedure GetFileIcon(FileName: string; var PngImage: TPngImage; IconIndex: word = 0);
+  procedure GetFileIconEx(FileName: string; var PngImage: TPngImage; IconIndex: word = 0; SmallIcon: boolean = false);
   function GetFileIconCount(FileName: string): integer;
   function GetAllFileIcons(FileName: string): TArray<TPngImage>;
 
-  { String Legacy }
-  function SuperStr(nr: string): string;
-  function SubStr(nr: string): string;
-
   { Application }
   function IsAdministrator: boolean;
+
+  function GetParameter(Index: integer): string;
 
   { Components }
   procedure CopyObject(ObjFrom, ObjTo: TObject);
@@ -93,25 +105,53 @@ const
 
   { Windows API }
   function GetWindowsVerByKernel: TWinVersion;
+  function IsWOW64Emulated: boolean;
+  function IsWow64Executable: Boolean;
+  function GetWindowsArhitecture: TWinArhitecture;
   function NTKernelVersion: single;
   function IdleTime: DWord;
   function GetAccentColor(brightencolor: boolean = false): TColor;
   function IsAppsUseDarkTheme: Boolean;
   function IsSystemUseDarkTheme: Boolean;
   function IsTransparencyEnabled: Boolean;
-  function GetUserNm: string;
+  function GetUserNameString: string;
+  function GetCompleteUserName: string;
   function GetFileTypeDescription(filetype: string): string;
   function GetTaskbarHeight: integer;
   function GetCurrentAppName: string;
   function GetOpenProgramFileName: string;
-  Function GetOpenProgramFileNameEx: ansistring;
+  function GetOpenProgramFileNameEx: ansistring;
+  function GetUserCLSID: string;
+  function GetUserGUID: string; (* This currently seems to not work/ is unrelated to user picture tasks *)
+  function GetUserProfilePicturePath(PrefferedResolution: string = '1080'): string;
+  (* Avalabile Resolutions are 1080, 448, 424, 208, 192, 96, 64, 48, 40, 32 *)
+  function GetUserProfilePictureEx: string;
+  procedure SetWallpaper(const FileName: string);
+  procedure MinimiseAllWindows;
+
+  procedure SimulateKeyPress32(key: Word; const shift: TShiftState; specialkey: Boolean);
+  procedure OpenWindowsUI(WinInterface: TWinUX; SuppressAnimation: boolean = false);
+  procedure OpenWindowsSettings(Page: TWinSettingPage);
+  procedure OpenWindowsUWPApp(AppURI: string);
 
   procedure ShutDownWindows;
 
-  procedure CreateShortcut(const PathObj, PathLink, Desc, Param: string);
+  { Debug }
+  procedure Debug(Value: string);
+
+  { Shell }
+  procedure ShellRun(Command: string; ShowConsole: boolean; Parameters: string = ''; Administrator: boolean = false; Directory: string = '');
+  procedure PowerShellRun(Command: string; ShowConsole: boolean; Administrator: boolean = false; Directory: string = '');
+  function PowerShellGetOutput(Command: string; ShowConsole: boolean; WaitFor: boolean = false; WantOutput: boolean = true): TStringList;
+  procedure WaitForProgramExecution(CommandLine: string);
+
+  { Window }
+  procedure FlashWindowInTaskbar;
+  function GetFormMonitorIndex(Form: TForm): integer;
 
   { File and Folder Related Tasks }
   function GetTreeSize ( path: string ): int64;
+  procedure CreateShortcut(const PathObj, PathLink, Desc, Param: string);
 
   function GetAllFileProperties(filename: string; allowempty: boolean = true): TStringList;
   function GetFileProperty(FileName, PropertyName: string): string;
@@ -151,6 +191,11 @@ begin
   until FindNext ( tsr ) <> 0;
   FindClose ( tsr );
  end;
+end;
+
+procedure ChangeMainForm(NewForm: TForm);
+begin
+  Pointer((@Application.MainForm)^) := NewForm;
 end;
 
 procedure CenterFormInForm(form, primaryform: TForm; alsoopen: boolean);
@@ -262,6 +307,7 @@ function FileTypeExists(FileExt: String;
   OnlyForCurrentUser: boolean): boolean;
 var
   key: HKEY;
+  Reg: TWinRegistry;
 begin
   if OnlyForCurrentUser then
     key := HKEY_CURRENT_USER
@@ -270,10 +316,16 @@ begin
 
   Result := false;
 
-  if
-    WinReg.KeyExists('\Software\Classes\.' + FileExt, key) AND
-    WinReg.KeyExists('\Software\Classes\' + FileExt + 'File', key)
-  then Result := true;
+  Reg := TWinRegistry.Create;
+  try
+    Reg.ManualHive := key;
+    if
+      Reg.KeyExists('\Software\Classes\.' + FileExt) AND
+      Reg.KeyExists('\Software\Classes\' + FileExt + 'File')
+    then Result := true;
+  finally
+    Reg.Free;
+  end;
 end;
 
 function GetFileTypeAssociation(FileExt: String; var ADesc, AIcon: string;
@@ -314,7 +366,7 @@ begin
   if filetype = '' then
     Exit('File Folder');
 
-  Result := 'Unknown';
+  Result := STRING_UNKNOWN;
 end;
 
 function GetTaskbarHeight: integer;
@@ -366,9 +418,445 @@ begin
   result := ansistring(S);
 end;
 
+function GetUserCLSID: string;
+var
+  UserName, DomainName: string;
+  UserSID: PSID;
+  SIDSize: DWORD;
+  SIDString: PChar;
+  DomainSize: DWORD;
+  SIDUse: SID_NAME_USE;
+begin
+  // Get the name of the currently logged-in user
+  Username := GetUserNameString;
+
+  // Lookup the account SID associated with the user name
+  SIDSize := 0;
+  DomainSize := 0;
+  LookupAccountName(nil, PChar(UserName), nil, SIDSize, nil, DomainSize, SIDUse);
+  UserSID := AllocMem(SIDSize);
+  try
+    SetLength(DomainName, DomainSize);
+    if not LookupAccountName(nil, PChar(UserName), UserSID, SIDSize, PChar(DomainName),
+        DomainSize, SIDUse) then
+      RaiseLastOSError;
+
+    // Convert the binary SID to a string format
+    if not ConvertSidToStringSid(UserSID, SIDString) then
+      RaiseLastOSError;
+    try
+      Result := SIDString;
+    finally
+      LocalFree(HLOCAL(SIDString));
+    end;
+  finally
+    FreeMem(UserSID);
+  end;
+end;
+
+function GetUserGUID: string;
+var
+  guid: TGUID;
+begin
+  if CoCreateGuid(guid) <> S_OK then
+    RaiseLastOSError;
+  Result := GUIDToString(guid);
+end;
+
+function GetUserProfilePicturePath(PrefferedResolution: string): string;
+var
+  L: TArray<string>;
+  Path: string;
+  Index: integer;
+  I: Integer;
+begin
+  Path := IncludeTrailingPathDelimiter( ReplaceWinPath(USER_PROFILE_PICTURES_LOCATION) ) +
+           GetUserCLSID + '\';
+
+  L := TDirectory.GetFiles( Path );
+
+  Index := 0;
+  if Length( L ) > 0 then
+    begin
+      for I := 0 to High(L) do
+        if Pos( 'Image' + PrefferedResolution, L[I]) <> 0 then
+          begin
+            Index := I;
+
+            Break;
+          end;
+
+      Result := L[Index];
+    end
+      else
+        Result := '';
+end;
+
+function GetUserProfilePictureEx: string;
+begin
+  Result :=
+    IncludeTrailingPathDelimiter( GetUserShellLocation(TUserShellLocation.shlAppDataLocal) )
+      + 'Microsoft\Windows\AccountPicture\UserImage.jpg';
+end;
+
+procedure SetWallpaper(const FileName: string);
+begin
+  if not SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, PChar(FileName), SPIF_UPDATEINIFILE) then
+    raise Exception.Create(ERROR_SET_WALLPAPER);
+end;
+
+procedure MinimiseAllWindows;
+var
+  hTaskBar: HWND;
+begin
+  hTaskBar := FindWindow('Shell_TrayWnd', nil);
+  if hTaskBar <> 0 then
+    SendMessage(hTaskBar, WM_COMMAND, MAKEWPARAM(419, 0), 0);
+end;
+
+procedure FlashWindowInTaskbar;
+var
+  Flash: FLASHWINFO;
+begin
+  FillChar(Flash, SizeOf(Flash), 0);
+  Flash.cbSize := SizeOf(Flash);
+  Flash.hwnd := Application.Handle;
+  Flash.uCount := 5;
+  Flash.dwTimeOut := 2000;
+  Flash.dwFlags := FLASHW_ALL;
+  FlashWindowEx(Flash);
+end;
+
+function GetFormMonitorIndex(Form: TForm): integer;
+var
+  I: Integer;
+  CenterPosition: TPoint;
+begin
+  // Default
+  Result := Screen.PrimaryMonitor.MonitorNum;
+
+  // Position
+  CenterPosition := Point(Form.Left + Form.Width div 2, Form.Top + Form.Height div 2);
+
+  // Scan Monitors
+  for I := 0 to Screen.MonitorCount -1 do
+    if Screen.Monitors[I].BoundsRect.Contains( CenterPosition ) then
+      Exit( Screen.Monitors[I].MonitorNum );
+end;
+
+procedure SimulateKeyPress32(key: Word; const shift: TShiftState;
+  specialkey: Boolean);
+type
+  TShiftKeyInfo = record
+    shift: Byte;
+    vkey: Byte;
+  end;
+  ByteSet = set of 0..7;
+const
+  shiftkeys: array [1..3] of TShiftKeyInfo = (
+    (shift: Ord(ssCtrl) ; vkey: VK_CONTROL),
+    (shift: Ord(ssShift) ; vkey: VK_SHIFT),
+    (shift: Ord(ssAlt) ; vkey: VK_MENU)
+  );
+var
+  flag: DWORD;
+  bShift: ByteSet absolute shift;
+  j: Integer;
+begin
+  for j := 1 to 3 do
+  begin
+    if shiftkeys[j].shift in bShift then
+      keybd_event(
+        shiftkeys[j].vkey, MapVirtualKey(shiftkeys[j].vkey, 0), 0, 0
+    );
+  end;
+  if specialkey then
+    flag := KEYEVENTF_EXTENDEDKEY
+  else
+    flag := 0;
+
+  keybd_event(key, MapvirtualKey(key, 0), flag, 0);
+  flag := flag or KEYEVENTF_KEYUP;
+  keybd_event(key, MapvirtualKey(key, 0), flag, 0);
+
+  for j := 3 downto 1 do
+  begin
+    if shiftkeys[j].shift in bShift then
+      keybd_event(
+        shiftkeys[j].vkey,
+        MapVirtualKey(shiftkeys[j].vkey, 0),
+        KEYEVENTF_KEYUP,
+        0
+      );
+  end;
+end;
+
+procedure OpenWindowsUI(WinInterface: TWinUX; SuppressAnimation: boolean);
+var
+  URI, PARAM: string;
+begin
+  URI := '';
+  PARAM := '';
+
+  case WinInterface of
+    wuxActionCenter: URI := 'ms-actioncenter:controlcenter/&suppressAnimations=' + BooleanToString(SuppressAnimation);
+    wuxNotifications: URI := 'ms-actioncenter://';
+    wuxCalculator: URI := 'ms-calculator://';
+    wuxStore: URI := 'ms-windows-store://';
+    wuxSupport: URI := 'ms-contact-support://';
+    wuxMaps: URI := 'ms-drive-to://';
+    wuxNetwork: URI := 'ms-availablenetworks://';
+    wuxCast: URI := 'ms-actioncenter:controlcenter/cast&suppressAnimations=' + BooleanToString(SuppressAnimation);
+    wuxWifi: URI := 'ms-actioncenter:controlcenter/wifi&suppressAnimations=' + BooleanToString(SuppressAnimation);
+    wuxProject: URI := 'ms-actioncenter:controlcenter/project&suppressAnimations=' + BooleanToString(SuppressAnimation);
+    wuxBluetooth: URI := 'ms-actioncenter:controlcenter/bluetooth&suppressAnimations=' + BooleanToString(SuppressAnimation);
+    wuxClock: URI := 'ms-clock://';
+    wuxXbox: URI := 'msxbox://';
+    wuxMediaPlayer: URI := 'ms-playto-audio://';
+    wuxWeather: URI := 'msnweather://';
+    wuxTaskSwitch: URI := 'ms-taskswitcher://';
+    wuxSettings: URI := 'ms-settings://';
+    wuxScreenClip: URI := 'ms-screenclip://';
+    wuxPhotos: URI := 'ms-photos://';
+    wuxPrintQueue: URI := 'ms-print-queue://';
+    wuxWinDefender: URI := 'windowsdefender://';
+    wuxStartMenu: SimulateKeyPress32( VK_LWIN, [], true);
+  end;
+
+  // Run
+  if URI <> '' then
+    ShellExecute(0, 'open', PChar(URI), PCHAR(PARAM), nil, 0);
+end;
+
+procedure OpenWindowsSettings(Page: TWinSettingPage);
+var
+  URI: string;
+begin
+  case Page of
+    wspHome: URI := 'ms-settings://';
+    wspFlightMode: URI := 'ms-settings-airplanemode://';
+    wspBluetooth: URI := 'ms-settings-bluetooth://';
+    wspCellular: URI := 'ms-settings-cellular://';
+    wspAccounts: URI := 'ms-settings-emailandaccounts://';
+    wspLanguage: URI := 'ms-settings-language://';
+    wspLocation: URI := 'ms-settings-location://';
+    wspLockScreen: URI := 'ms-settings-lock://';
+    wspHotspot: URI := 'ms-settings-mobilehotspot://';
+    wspNotifications: URI := 'ms-settings-notifications://';
+    wspPower: URI := 'ms-settings-power://';
+    wspPrivacy: URI := 'ms-settings-privacy://';
+    wspDisplay: URI := 'ms-settings-screenrotation://';
+    wspWifi: URI := 'ms-settings-wifi://';
+    wspWorkplace: URI := 'ms-settings-workplace://';
+  end;
+
+  // Run
+  ShellExecute(0, 'open', PChar(URI), '', nil, 0);
+end;
+
+procedure OpenWindowsUWPApp(AppURI: string);
+var
+  URI: string;
+begin
+  URI := AppURI + '://';
+
+  ShellExecute(0, 'open', PChar(URI), PCHAR(URI), nil, 0);
+end;
+
 procedure ShutDownWindows;
 begin
   ShellExecute(0, 'open', 'powershell', '-c "(New-Object -Com Shell.Application).ShutdownWindows()"', nil, 0);
+end;
+
+procedure Debug(Value: string);
+begin
+  OutPutDebugString( PChar(Value) );
+end;
+
+procedure ShellRun(Command: string; ShowConsole: boolean; Parameters: string; Administrator: boolean; Directory: string);
+var
+  OperationType: string;
+  Parameter: integer;
+begin
+  if Administrator then
+    OperationType := 'runas'
+  else
+    OperationType := 'open';
+
+  if ShowConsole then
+    Parameter := SW_NORMAL
+  else
+    Parameter := SW_HIDE;
+
+  ShellExecute( 0, PChar(OperationType), PChar(Command), PChar(Parameters), PChar(Directory), Parameter);
+end;
+
+procedure PowerShellRun(Command: string; ShowConsole: boolean; Administrator: boolean; Directory: string);
+var
+  Parameter: integer;
+  OperationType: string;
+
+  ShellParams: string;
+begin
+  // Settings
+  if Administrator then
+    OperationType := 'runas'
+  else
+    OperationType := 'open';
+
+  if ShowConsole then
+    Parameter := SW_NORMAL
+  else
+    Parameter := SW_HIDE;
+
+  // Replace quote mark
+  Command := Command.Replace('"', #$27);
+
+  // As Param
+  ShellParams := '-c "' + Command + '"';
+
+  ShellExecute(0, PChar(OperationType), 'powershell', PChar(ShellParams), PChar(Directory), Parameter);
+end;
+
+function PowerShellGetOutput(Command: string; ShowConsole, WaitFor, WantOutput: boolean): TStringList;
+const
+    READ_BUFFER_SIZE = 2400;
+var
+    Security: TSecurityAttributes;
+    readableEndOfPipe, writeableEndOfPipe: THandle;
+    start: TStartUpInfo;
+    ProcessInfo: TProcessInformation;
+    Buffer: PAnsiChar;
+    BytesRead: DWORD;
+    AppRunning: DWORD;
+    DosApp: string;
+begin
+    Security.nLength := SizeOf(TSecurityAttributes);
+    Security.bInheritHandle := True;
+    Security.lpSecurityDescriptor := nil;
+
+    // Prepare Executable
+    DosApp := 'powershell -c "' + Command.Replace('"', #$27) + '"';
+
+    // Output
+    Result := TStringList.Create;
+
+    if CreatePipe({var}readableEndOfPipe, {var}writeableEndOfPipe, @Security, 0) then
+    begin
+        Buffer := AllocMem(READ_BUFFER_SIZE+1);
+        FillChar(Start, Sizeof(Start), #0);
+        start.cb := SizeOf(start);
+
+        // Set up members of the STARTUPINFO structure.
+        // This structure specifies the STDIN and STDOUT handles for redirection.
+        // - Redirect the output and error to the writeable end of our pipe.
+        // - We must still supply a valid StdInput handle (because we used STARTF_USESTDHANDLES to swear that all three handles will be valid)
+        start.dwFlags := start.dwFlags or STARTF_USESTDHANDLES;
+        start.hStdInput := GetStdHandle(STD_INPUT_HANDLE); //we're not redirecting stdInput; but we still have to give it a valid handle
+        if WantOutput then
+          start.hStdOutput := writeableEndOfPipe; //we give the writeable end of the pipe to the child process; we read from the readable end
+        start.hStdError := writeableEndOfPipe;
+
+        //We can also choose to say that the wShowWindow member contains a value.
+        //In our case we want to force the console window to be hidden.
+        start.dwFlags := start.dwFlags + STARTF_USESHOWWINDOW;
+        if ShowConsole then
+          start.wShowWindow := SW_NORMAL
+        else
+          start.wShowWindow := SW_HIDE;
+
+        // Don't forget to set up members of the PROCESS_INFORMATION structure.
+        ProcessInfo := Default(TProcessInformation);
+
+        //WARNING: The unicode version of CreateProcess (CreateProcessW) can modify the command-line "DosApp" string.
+        //Therefore "DosApp" cannot be a pointer to read-only memory, or an ACCESS_VIOLATION will occur.
+        //We can ensure it's not read-only with the RTL function: UniqueString
+        UniqueString({var}DosApp);
+
+        if CreateProcess(nil, PChar(DosApp), nil, nil, True, NORMAL_PRIORITY_CLASS, nil, nil, start, {var}ProcessInfo) then
+        begin
+            //Wait for the application to terminate, as it writes it's output to the pipe.
+            //WARNING: If the console app outputs more than 2400 bytes (ReadBuffer),
+            //it will block on writing to the pipe and *never* close.
+            repeat
+                Apprunning := WaitForSingleObject(ProcessInfo.hProcess, 100);
+
+                if not WaitFor then
+                  Application.ProcessMessages;
+            until (Apprunning <> WAIT_TIMEOUT);
+
+            //Read the contents of the pipe out of the readable end
+            //WARNING: if the console app never writes anything to the StdOutput, then ReadFile will block and never return
+            // If you just want to wait for a process to finish, set WantOutput to false
+            if WantOutput then
+              repeat
+                BytesRead := 0;
+                ReadFile(readableEndOfPipe, Buffer[0], READ_BUFFER_SIZE, {var}BytesRead, nil);
+                Buffer[BytesRead]:= #0;
+                OemToAnsi(Buffer,Buffer);
+                Result.Text := Result.text + String(Buffer);
+              until (BytesRead < READ_BUFFER_SIZE);
+        end;
+        FreeMem(Buffer);
+        CloseHandle(ProcessInfo.hProcess);
+        CloseHandle(ProcessInfo.hThread);
+        CloseHandle(readableEndOfPipe);
+        CloseHandle(writeableEndOfPipe);
+    end;
+end;
+
+procedure WaitForProgramExecution(CommandLine: string);
+const
+    READ_BUFFER_SIZE = 2400;
+var
+    Security: TSecurityAttributes;
+    readableEndOfPipe, writeableEndOfPipe: THandle;
+    start: TStartUpInfo;
+    ProcessInfo: TProcessInformation;
+    Buffer: PAnsiChar;
+    AppRunning: DWORD;
+begin
+    Security.nLength := SizeOf(TSecurityAttributes);
+    Security.bInheritHandle := True;
+    Security.lpSecurityDescriptor := nil;
+
+    if CreatePipe({var}readableEndOfPipe, {var}writeableEndOfPipe, @Security, 0) then
+    begin
+        Buffer := AllocMem(READ_BUFFER_SIZE+1);
+        FillChar(Start, Sizeof(Start), #0);
+        start.cb := SizeOf(start);
+
+        // Set up members of the STARTUPINFO structure.
+        // This structure specifies the STDIN and STDOUT handles for redirection.
+        // - Redirect the output and error to the writeable end of our pipe.
+        // - We must still supply a valid StdInput handle (because we used STARTF_USESTDHANDLES to swear that all three handles will be valid)
+        start.dwFlags := start.dwFlags or STARTF_USESTDHANDLES;
+        start.hStdInput := GetStdHandle(STD_INPUT_HANDLE); //we're not redirecting stdInput; but we still have to give it a valid handle
+        start.hStdOutput := writeableEndOfPipe; //we give the writeable end of the pipe to the child process; we read from the readable end
+        start.hStdError := writeableEndOfPipe;
+
+        start.dwFlags := start.dwFlags + STARTF_USESHOWWINDOW;
+        start.wShowWindow := SW_HIDE;
+
+        ProcessInfo := Default(TProcessInformation);
+
+        UniqueString({var}CommandLine);
+
+        if CreateProcess(nil, PChar(CommandLine), nil, nil, True, NORMAL_PRIORITY_CLASS, nil, nil, start, {var}ProcessInfo) then
+        begin
+            //Wait for the application to terminate, as it writes it's output to the pipe.
+            //WARNING: If the console app outputs more than 2400 bytes (ReadBuffer),
+            //it will block on writing to the pipe and *never* close.
+            repeat
+                Apprunning := WaitForSingleObject(ProcessInfo.hProcess, 100);
+            until (Apprunning <> WAIT_TIMEOUT);
+        end;
+        FreeMem(Buffer);
+        CloseHandle(ProcessInfo.hProcess);
+        CloseHandle(ProcessInfo.hThread);
+        CloseHandle(readableEndOfPipe);
+        CloseHandle(writeableEndOfPipe);
+    end;
 end;
 
 procedure CreateShortcut(const PathObj, PathLink, Desc, Param: string);
@@ -416,6 +904,54 @@ begin
                                       Result := wvnWin10;
 end;
 
+function IsWOW64Emulated: Boolean;
+var
+  IsWow64: BOOL;
+begin
+  // Check if the current process is running under WOW64
+  if IsWow64Process(GetCurrentProcess, IsWow64) then
+    Result := IsWow64
+  else
+    Result := False;
+end;
+
+function IsWow64Executable: Boolean;
+type
+  TIsWow64Process = function(AHandle: DWORD; var AIsWow64: BOOL): BOOL; stdcall;
+
+var
+  hIsWow64Process: TIsWow64Process;
+  hKernel32: DWORD;
+  IsWow64: BOOL;
+
+begin
+  Result := True;
+
+  hKernel32 := Winapi.Windows.LoadLibrary('kernel32.dll');
+  if hKernel32 = 0 then Exit;
+
+  try
+    @hIsWow64Process := Winapi.Windows.GetProcAddress(hKernel32, 'IsWow64Process');
+    if not System.Assigned(hIsWow64Process) then
+      Exit;
+
+    IsWow64 := False;
+    if hIsWow64Process(Winapi.Windows.GetCurrentProcess, IsWow64) then
+      Result := not IsWow64;
+
+  finally
+    Winapi.Windows.FreeLibrary(hKernel32);
+  end;
+end;
+
+function GetWindowsArhitecture: TWinArhitecture;
+begin
+  if IsWOW64Emulated or IsWow64Executable then
+    Result := wa64bit
+  else
+    Result := wa32bit;
+end;
+
 function NTKernelVersion: single;
 begin
   Result := Win32MajorVersion + Win32MinorVersion / 10;
@@ -440,7 +976,7 @@ begin
   try
     R.RootKey := HKEY_CURRENT_USER;
     if R.OpenKeyReadOnly('Software\Microsoft\Windows\DWM\') and R.ValueExists('AccentColor') then begin
-      ARGB := R.ReadInteger('AccentColor');
+      ARGB := R.ReadCardinal('AccentColor');
       Result := ARGB mod $FF000000; //  ARGB to RGB
     end;
   finally
@@ -498,7 +1034,7 @@ begin
   end;
 end;
 
-function GetUserNm: string;
+function GetUserNameString: string;
 var
   nSize: DWord;
 begin
@@ -510,18 +1046,65 @@ begin
    RaiseLastOSError;
 end;
 
+function GetCompleteUserName: string;
+const
+  nameType = NameDisplay;
+var
+  dwSize: DWORD;
+  userName: PWideChar;
+begin
+  dwSize := 0;
+  if Succeeded(GetUserNameEx(nameType, nil, dwSize)) then
+  begin
+    GetMem(userName, dwSize * SizeOf(WideChar));
+    try
+      if Succeeded(GetUserNameEx(nameType, userName, dwSize)) then
+      begin
+        // use the name
+        Result := PChar(userName);
+      end
+      else
+        RaiseLastOSError;
+    finally
+      FreeMem(userName);
+    end;
+  end
+  else
+    RaiseLastOSError;
+end;
+
 function IsAdministrator: boolean;
 var
   str: string;
+  Registry: TWinRegistry;
 begin
-  str :=  'Software\' + inttostr(randomrange(1000,9999));
+  str :=  'HKEY_LOCAL_MACHINE\Software\' + inttostr(randomrange(1000,9999));
 
-  if WinReg.CreateKey(str) then
-    Result := true
-  else
-    Result := false;
+  Registry := TWinRegistry.Create;
+  try
+    Registry.ErrorKind := TRegistryErrorKind.Disabled;
+    if Registry.CreateKey(str) then
+      Result := true
+    else
+      Result := false;
+  finally
+    Registry.Free;
+  end;
 
-  WinReg.DeleteKey(str);
+  TQuickReg.DeleteKey(str);
+end;
+
+function GetParameter(Index: integer): string;
+begin
+  Result := ParamStr(Index);
+
+  // Fix WinNT
+  if (Result[1] = '/') then
+    Result[1] := '-';
+
+  // Caps for parameter
+  if (Result[1] = '/') then
+    Result := AnsiLowerCase( Result );
 end;
 
 procedure GetFileIcon(FileName: string; var PngImage: TPngImage; IconIndex: word);
@@ -530,13 +1113,49 @@ var
 begin
   // Get TIcon
   ic := TIcon.Create;
-  ic.Handle := ExtractAssociatedIcon(HInstance, PChar(FileName), IconIndex);
-  ic.Transparent := true;
+  try
+    ic.Handle := ExtractAssociatedIcon(HInstance, PChar(FileName), IconIndex);
+    ic.Transparent := true;
 
-  // Convert to PNG
-  PngImage := TPngImage.Create;
+    // Convert to PNG
+    PngImage := TPngImage.Create;
 
-  ConvertToPNG(ic, PngImage);
+    ConvertToPNG(ic, PngImage);
+  finally
+    ic.Free;
+  end;
+end;
+
+procedure GetFileIconEx(FileName: string; var PngImage: TPngImage; IconIndex: word;
+  SmallIcon: boolean);
+var
+  ic: TIcon;
+  SHFileInfo: TSHFileInfo;
+  Flags: Cardinal;
+begin
+  Flags := SHGFI_ICON or SHGFI_USEFILEATTRIBUTES;
+  if SmallIcon then
+    Flags := Flags or SHGFI_SMALLICON
+  else
+    Flags := Flags or SHGFI_LARGEICON;
+
+  SHGetFileInfo(PChar(FileName), 0, SHFileInfo, SizeOf(TSHFileInfo),
+    Flags);
+
+  // Get TIcon
+  ic := TIcon.Create;
+  try
+    ic.Handle := SHFileInfo.hIcon;;
+    ic.Transparent := true;
+
+    // Convert to PNG
+    PngImage := TPngImage.Create;
+
+    ConvertToPNG(ic, PngImage);
+  finally
+    ic.Free;
+
+  end;
 end;
 
 function GetFileIconCount(FileName: string): integer;
@@ -852,84 +1471,6 @@ begin
     Result := false;
 end;
 
-function SuperStr(nr: string): string;
-var
-  I: Integer;
-begin
-  for I := 1 to Length ( nr ) do
-    case nr[I] of
-      ' ': Result := Result + ' ';
-      '0': Result := Result + superspr[0];
-      '1': Result := Result + superspr[1];
-      '2': Result := Result + superspr[2];
-      '3': Result := Result + superspr[3];
-      '4': Result := Result + superspr[4];
-      '5': Result := Result + superspr[5];
-      '6': Result := Result + superspr[6];
-      '7': Result := Result + superspr[7];
-      '8': Result := Result + superspr[8];
-      '9': Result := Result + superspr[9];
-      '+': Result := Result + superspr[10];
-      '-': Result := Result + superspr[11];
-      '=': Result := Result + superspr[12];
-      '(': Result := Result + superspr[13];
-      ')': Result := Result + superspr[14];
-      '/': Result := Result + superspr[15];
-      'a': Result := Result + superspr[16];
-      'b': Result := Result + superspr[17];
-      'c': Result := Result + superspr[18];
-      'd': Result := Result + superspr[19];
-      'e': Result := Result + superspr[20];
-      'f': Result := Result + superspr[21];
-      'g': Result := Result + superspr[22];
-      'h': Result := Result + superspr[23];
-      'i': Result := Result + superspr[24];
-      'j': Result := Result + superspr[25];
-      'k': Result := Result + superspr[26];
-      'l': Result := Result + superspr[27];
-      'm': Result := Result + superspr[28];
-      'n': Result := Result + superspr[29];
-      'o': Result := Result + superspr[30];
-      'p': Result := Result + superspr[31];
-      'q': Result := Result + superspr[32];
-      'r': Result := Result + superspr[33];
-      's': Result := Result + superspr[34];
-      't': Result := Result + superspr[35];
-      'u': Result := Result + superspr[36];
-      'v': Result := Result + superspr[37];
-      'w': Result := Result + superspr[38];
-      'x': Result := Result + superspr[39];
-      'y': Result := Result + superspr[40];
-      'z': Result := Result + superspr[41];
-      'A': Result := Result + superspr[42];
-      'B': Result := Result + superspr[43];
-      'C': Result := Result + superspr[44];
-      'D': Result := Result + superspr[45];
-      'E': Result := Result + superspr[46];
-      'F': Result := Result + superspr[47];
-      'G': Result := Result + superspr[48];
-      'H': Result := Result + superspr[49];
-      'I': Result := Result + superspr[50];
-      'J': Result := Result + superspr[51];
-      'K': Result := Result + superspr[52];
-      'L': Result := Result + superspr[53];
-      'M': Result := Result + superspr[54];
-      'N': Result := Result + superspr[55];
-      'O': Result := Result + superspr[56];
-      'P': Result := Result + superspr[57];
-      'Q': Result := Result + superspr[58];
-      'R': Result := Result + superspr[59];
-      'S': Result := Result + superspr[60];
-      'T': Result := Result + superspr[61];
-      'U': Result := Result + superspr[62];
-      'V': Result := Result + superspr[63];
-      'W': Result := Result + superspr[64];
-      'X': Result := Result + superspr[65];
-      'Y': Result := Result + superspr[66];
-      'Z': Result := Result + superspr[67];
-    end;
-end;
-
 procedure UnregisterFileType(FileExt: String;
   OnlyForCurrentUser: boolean);
 var
@@ -948,84 +1489,6 @@ begin
     R.Free;
   end;
   SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nil, nil);
-end;
-
-function SubStr(nr: string): string;
-var
-  I: Integer;
-begin
-  for I := 1 to Length ( nr ) do
-    case nr[I] of
-      ' ': Result := Result + ' ';
-      '0': Result := Result + subspr[0];
-      '1': Result := Result + subspr[1];
-      '2': Result := Result + subspr[2];
-      '3': Result := Result + subspr[3];
-      '4': Result := Result + subspr[4];
-      '5': Result := Result + subspr[5];
-      '6': Result := Result + subspr[6];
-      '7': Result := Result + subspr[7];
-      '8': Result := Result + subspr[8];
-      '9': Result := Result + subspr[9];
-      '+': Result := Result + subspr[10];
-      '-': Result := Result + subspr[11];
-      '=': Result := Result + subspr[12];
-      '(': Result := Result + subspr[13];
-      ')': Result := Result + subspr[14];
-      '/': Result := Result + subspr[15];
-      'a': Result := Result + subspr[16];
-      'b': Result := Result + subspr[17];
-      'c': Result := Result + subspr[18];
-      'd': Result := Result + subspr[19];
-      'e': Result := Result + subspr[20];
-      'f': Result := Result + subspr[21];
-      'g': Result := Result + subspr[22];
-      'h': Result := Result + subspr[23];
-      'i': Result := Result + subspr[24];
-      'j': Result := Result + subspr[25];
-      'k': Result := Result + subspr[26];
-      'l': Result := Result + subspr[27];
-      'm': Result := Result + subspr[28];
-      'n': Result := Result + subspr[29];
-      'o': Result := Result + subspr[30];
-      'p': Result := Result + subspr[31];
-      'q': Result := Result + subspr[32];
-      'r': Result := Result + subspr[33];
-      's': Result := Result + subspr[34];
-      't': Result := Result + subspr[35];
-      'u': Result := Result + subspr[36];
-      'v': Result := Result + subspr[37];
-      'w': Result := Result + subspr[38];
-      'x': Result := Result + subspr[39];
-      'y': Result := Result + subspr[40];
-      'z': Result := Result + subspr[41];
-      'A': Result := Result + subspr[42];
-      'B': Result := Result + subspr[43];
-      'C': Result := Result + subspr[44];
-      'D': Result := Result + subspr[45];
-      'E': Result := Result + subspr[46];
-      'F': Result := Result + subspr[47];
-      'G': Result := Result + subspr[48];
-      'H': Result := Result + subspr[49];
-      'I': Result := Result + subspr[50];
-      'J': Result := Result + subspr[51];
-      'K': Result := Result + subspr[52];
-      'L': Result := Result + subspr[53];
-      'M': Result := Result + subspr[54];
-      'N': Result := Result + subspr[55];
-      'O': Result := Result + subspr[56];
-      'P': Result := Result + subspr[57];
-      'Q': Result := Result + subspr[58];
-      'R': Result := Result + subspr[59];
-      'S': Result := Result + subspr[60];
-      'T': Result := Result + subspr[61];
-      'U': Result := Result + subspr[62];
-      'V': Result := Result + subspr[63];
-      'W': Result := Result + subspr[64];
-      'X': Result := Result + subspr[65];
-      'Y': Result := Result + subspr[66];
-      'Z': Result := Result + subspr[67];
-    end;
 end;
 
 {File}
@@ -1078,7 +1541,7 @@ var
   s1, s2: string;
   I: Integer;
 begin
-  Result := 'Not Found';
+  Result := NOT_FOUND;
 
   R := GetAllFileProperties(FileName);
 
@@ -1123,7 +1586,7 @@ var
     Len       : Dword;
     Value     : PChar;
   begin
-    Result := 'Not defined';
+    Result := NOT_DEFINED;
     if fInfoSize > 0 then
       begin
         SetLength(tmpVersion, 200);

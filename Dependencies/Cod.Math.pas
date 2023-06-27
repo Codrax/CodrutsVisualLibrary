@@ -12,6 +12,7 @@
 {***********************************************************}
 
 unit Cod.Math;
+{$SCOPEDENUMS ON}
 
 interface
   uses
@@ -19,7 +20,7 @@ interface
   Cod.SysUtils, System.Generics.Collections, Cod.VarHelpers, Cod.StringUtils;
 
   type
-    TNumberRelation = (nrSmaller, nrBigger, ntEqual);
+    TNumberRelation = (Smaller, Bigger, Equal);
 
   // This function gets a string and automaticly calculates any
   // indics such as =time =eq = cell
@@ -40,13 +41,21 @@ interface
   function StringToFloat(str: string): Extended;
   // Better string to float conversion
 
+  // Number Sequences
+  // Fisher-Yates shuffle algorithm
+  function GenerateRandomSequence(count: Integer): TArray<Integer>;
+
   // Basic Mathematical Function
+  function Sign(Value: integer): integer;
   function EqualApprox(number1, number2: int64; span: real = 1): boolean; overload;
   function EqualApprox(number1, number2: real; span: real = 1): boolean; overload;
   function PercOf(number: int64; percentage: integer): integer;
   function PercOfR(number: Real; percentage: int64): real;
   function GetNumberRelation(Primary, Secondary: int64): TNumberRelation; overload;
   function GetNumberRelation(Primary, Secondary: real): TNumberRelation; overload;
+  {$IFDEF WIN32}
+  procedure ConstraintASM(var Number: integer; Min: integer; Max: integer);
+  {$ENDIF}
   procedure Constraint(var Number: integer; Min: integer = integer.MinValue; Max: integer = integer.MaxValue); overload;
   procedure Constraint(var Number: int64; Min: int64 = int64.MinValue; Max: int64 = int64.MaxValue); overload;
   procedure Constraint(var Number: Real; Min: Real = int64.MinValue; Max: Real = int64.MaxValue); overload;
@@ -64,8 +73,36 @@ function GetLocalePeriod: string;
 var
   fs: TFormatSettings;
 begin
+  {$WARN SYMBOL_PLATFORM OFF}
   fs := TFormatSettings.Create(GetThreadLocale());
+  {$WARN SYMBOL_PLATFORM ON}
   Result := fs.DecimalSeparator;
+end;
+
+function GenerateRandomSequence(count: Integer): TArray<Integer>;
+var
+  i, j, temp: Integer;
+begin
+  // create an array to hold the sequence
+  SetLength(Result, count);
+
+  // fill the array with sequential numbers
+  for i := 0 to count - 1 do
+    Result[i] := i + 1;
+
+  // shuffle the sequence using Fisher-Yates algorithm
+  for i := count - 1 downto 1 do
+  begin
+    j := Random(i + 1); // generate a random index between 0 and i
+    temp := Result[j];
+    Result[j] := Result[i];
+    Result[i] := temp;
+  end;
+end;
+
+function Sign(Value: integer): integer;
+begin
+  Result := Value div abs(Value);
 end;
 
 function EqualApprox(number1, number2: int64; span: real): boolean;
@@ -102,13 +139,55 @@ end;
 function GetNumberRelation(Primary, Secondary: real): TNumberRelation;
 begin
   if Primary = Secondary then
-    Result := ntEqual
+    Result := TNumberRelation.Equal
       else
         if Primary > Secondary then
-          Result := nrBigger
+          Result := TNumberRelation.Bigger
             else
-              Result := nrSmaller;
+              Result := TNumberRelation.Smaller;
 end;
+
+{$IFDEF WIN32}
+procedure ConstraintASM(var Number: integer; Min: integer; Max: integer);
+label
+  min_succeed, min_analise, max_begin, max_succeed, write_value, exit_comp;
+asm
+    // Load values
+    mov ebx, Min
+    mov ecx, Max
+
+    // Load registry location
+    lea edx, [Number]
+
+    // Load value
+    mov eax, [edx]
+
+    // Min
+    cmp eax, ebx
+    jle min_analise
+
+    jmp max_begin
+
+  min_analise:
+    je exit_comp
+    mov eax, ebx
+    jmp write_value
+
+    // Max
+  max_begin:
+    cmp eax, ecx
+    jle exit_comp
+
+    mov eax, ecx
+
+    // Write
+  write_value:
+    mov [edx], eax
+
+    // Exit
+  exit_comp:
+end;
+{$ENDIF}
 
 procedure Constraint(var Number: integer; Min: integer; Max: integer);
 begin
