@@ -99,6 +99,8 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
@@ -136,13 +138,14 @@
         <DCCReference Include="src\Cod.Visual.ColorBox.pas"/>
         <DCCReference Include="src\Cod.Visual.Panels.pas"/>
         <DCCReference Include="src\Cod.Visual.GlassBlur.pas"/>
-        <DCCReference Include="src\Cod.ColorDialog.pas"/>
-        <DCCReference Include="src\Cod.IconPicker.pas"/>
-        <DCCReference Include="src\Cod.HotKey.pas"/>
-        <DCCReference Include="src\Cod.PrintDlg.pas"/>
         <DCCReference Include="src\Cod.Visual.CPSharedLib.pas"/>
+        <DCCReference Include="src\Cod.Components.Register.pas"/>
+        <DCCReference Include="src\Cod.Visual.Scrollbar.pas"/>
+        <DCCReference Include="src\Cod.Dialogs.ColorDialog.pas"/>
+        <DCCReference Include="src\Cod.Dialogs.IconPicker.pas"/>
+        <DCCReference Include="src\Cod.Dialogs.PrintDlg.pas"/>
         <DCCReference Include="src\Cod.Components.pas"/>
-        <DCCReference Include="src\Cod.Visual.Register.pas"/>
+        <DCCReference Include="src\Cod.Component.HotKey.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -164,9 +167,8 @@
                     <Source Name="MainSource">CodrutVisual.dpk</Source>
                 </Source>
                 <Excluded_Packages>
-                    <Excluded_Packages Name="C:\Users\Public\Documents\Embarcadero\Studio\21.0\Bpl\CodFluentUX.bpl">File C:\Users\Public\Documents\Embarcadero\Studio\21.0\Bpl\CodFluentUX.bpl not found</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k270.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp270.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k280.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp280.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="4">
@@ -174,6 +176,12 @@
                 <DeployFile LocalName="$(BDS)\Redist\iossimulator\libpcre.dylib" Class="DependencyModule"/>
                 <DeployFile LocalName="$(BDS)\Redist\osx32\libcgunwind.1.0.dylib" Class="DependencyModule"/>
                 <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\21.0\Bpl\CodrutVisual.bpl" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\22.0\Bpl\CodrutVisual.bpl" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>CodrutVisual.bpl</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="OSX32">
                         <Operation>1</Operation>

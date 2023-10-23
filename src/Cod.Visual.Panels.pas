@@ -445,7 +445,7 @@ procedure CPanel.ApplyAccentColor;
 var
   AccColor: TColor;
 begin
-  if FAccent = acNone then
+  if FAccent = CAccentColor.None then
     Exit;
 
   AccColor := GetAccentColor(FAccent);
@@ -460,7 +460,7 @@ begin
   BevelKind := bkNone;
   BevelOuter := bvNone;
 
-  FAccent := acNone;
+  FAccent := CAccentColor.None;
 end;
 
 destructor CPanel.Destroy;
@@ -480,7 +480,7 @@ procedure CPanel.SetUseAccentColor(const Value: CAccentColor);
 begin
   FAccent := Value;
 
-  if Value <> acNone then
+  if Value <> CAccentColor.None then
     ParentColor := false;
   Invalidate;
 end;

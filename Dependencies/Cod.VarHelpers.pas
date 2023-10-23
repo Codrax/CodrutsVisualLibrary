@@ -21,7 +21,7 @@ interface
   VCL.Graphics, Winapi.ActiveX, Winapi.URLMon, IOUtils, System.Generics.Collections,
   Cod.ColorUtils, System.Generics.Defaults, Vcl.Imaging.pngimage,
   WinApi.GdipObj, WinApi.GdipApi, Win.Registry, Cod.GDI, Cod.Types,
-  DateUtils, Cod.Registry;
+  DateUtils, Cod.Registry, UITypes;
 
   type
     // Color Helper
@@ -55,40 +55,6 @@ interface
       class function GetIndex(const x : T; const anArray : array of T) : integer;
     end;
 
-    // TArray generic types
-    TArrayArrayHelper = record helper for TArray<TArray>
-    public
-      function Count: integer; overload; inline;
-      procedure SetToLength(ALength: integer);
-    end;
-
-    TStringArrayHelper = record helper for TArray<string>
-    public
-      function AddValue(Value: string): integer;
-      procedure Delete(Index: integer);
-      function Count: integer; overload; inline;
-      function Find(Value: string): integer;
-      procedure SetToLength(ALength: integer);
-    end;
-
-    TIntegerArrayHelper = record helper for TArray<integer>
-    public
-      function AddValue(Value: integer): integer;
-      procedure Delete(Index: integer);
-      function Count: integer; overload; inline;
-      function Find(Value: integer): integer;
-      procedure SetToLength(ALength: integer);
-    end;
-
-    TRealArrayHelper = record helper for TArray<real>
-    public
-      function AddValue(Value: real): integer;
-      procedure Delete(Index: integer);
-      function Count: integer; overload; inline;
-      function Find(Value: real): integer;
-      procedure SetToLength(ALength: integer);
-    end;
-
     // TFont
     TAdvFont = type string;
 
@@ -105,6 +71,9 @@ interface
       procedure StretchDraw(DestRect, SrcRect: TRect; Bitmap: TBitmap; Opacity: Byte); overload;
       procedure StretchDraw(Rect: TRect; Graphic: TGraphic; AOpacity: Byte); overload;
 
+      procedure CopyRect(const Dest: TRect; Canvas: TCanvas; const Source: TRect; Opacity: Byte); overload;
+
+      procedure GDIText(Text: string; Rectangle: TRect; AlignH: TLayout = TLayout.Beginning; AlignV: TLayout = TLayout.Beginning; Angle: integer = 0);
       procedure GDITint(Rectangle: TRect; Color: TColor; Opacity: byte = 75);
       procedure GDIRectangle(Rectangle: TRect; Brush: TGDIBrush; Pen: TGDIPen);
       procedure GDIRoundRect(RoundRect: TRoundRect; Brush: TGDIBrush; Pen: TGDIPen);
@@ -216,138 +185,6 @@ begin
   Result := MillisecondOf( Self );
 end;
 
-// TArray Generic Helpers
-
-function TArrayArrayHelper.Count: integer;
-begin
-  Result := length(Self);
-end;
-
-function TStringArrayHelper.Count: integer;
-begin
-  Result := length(Self);
-end;
-
-function TIntegerArrayHelper.Count: integer;
-begin
-  Result := length(Self);
-end;
-
-function TRealArrayHelper.Count: integer;
-begin
-  Result := length(Self);
-end;
-
-procedure TArrayArrayHelper.SetToLength(ALength: integer);
-begin
-  SetLength(Self, ALength);
-end;
-
-procedure TStringArrayHelper.SetToLength(ALength: integer);
-begin
-  SetLength(Self, ALength);
-end;
-
-procedure TIntegerArrayHelper.SetToLength(ALength: integer);
-begin
-  SetLength(Self, ALength);
-end;
-
-procedure TRealArrayHelper.SetToLength(ALength: integer);
-begin
-  SetLength(Self, ALength);
-end;
-
-function TStringArrayHelper.AddValue(Value: string): integer;
-var
-  AIndex: integer;
-begin
-  AIndex := Length(Self);
-  SetLength(Self, AIndex + 1);
-  Self[AIndex] := Value;
-  Result := AIndex;
-end;
-
-function TIntegerArrayHelper.AddValue(Value: integer): integer;
-var
-  AIndex: integer;
-begin
-  AIndex := Length(Self);
-  SetLength(Self, AIndex + 1);
-  Self[AIndex] := Value;
-  Result := AIndex;
-end;
-
-function TRealArrayHelper.AddValue(Value: real): integer;
-var
-  AIndex: integer;
-begin
-  AIndex := Length(Self);
-  SetLength(Self, AIndex + 1);
-  Self[AIndex] := Value;
-  Result := AIndex;
-end;
-
-procedure TStringArrayHelper.Delete(Index: integer);
-var
-  I: Integer;
-begin
-  for I := Index to High(Self)-1 do
-    Self[I] := Self[I+1];
-
-  SetToLength(Length(Self)-1);
-end;
-
-procedure TIntegerArrayHelper.Delete(Index: integer);
-var
-  I: Integer;
-begin
-  for I := Index to High(Self)-1 do
-    Self[I] := Self[I+1];
-
-  SetToLength(Length(Self)-1);
-end;
-
-procedure TRealArrayHelper.Delete(Index: integer);
-var
-  I: Integer;
-begin
-  for I := Index to High(Self)-1 do
-    Self[I] := Self[I+1];
-
-  SetToLength(Length(Self)-1);
-end;
-
-function TStringArrayHelper.Find(Value: string): integer;
-var
-  I: integer;
-begin
-  Result := -1;
-  for I := Low(Self) to High(Self) do
-    if Self[I] = Value then
-      Exit(I);
-end;
-
-function TIntegerArrayHelper.Find(Value: integer): integer;
-var
-  I: integer;
-begin
-  Result := -1;
-  for I := Low(Self) to High(Self) do
-    if Self[I] = Value then
-      Exit(I);
-end;
-
-function TRealArrayHelper.Find(Value: real): integer;
-var
-  I: integer;
-begin
-  Result := -1;
-  for I := Low(Self) to High(Self) do
-    if Self[I] = Value then
-      Exit(I);
-end;
-
 // TFont
 function TAdvFontHelper.ToString: string;
 begin
@@ -378,6 +215,57 @@ end;
 procedure TCanvasHelper.StretchDraw(Rect: TRect; Graphic: TGraphic; AOpacity: Byte);
 begin
   GraphicStretchDraw(Self, Rect, Graphic, AOpacity);
+end;
+
+procedure TCanvasHelper.CopyRect(const Dest: TRect; Canvas: TCanvas; const Source: TRect; Opacity: Byte);
+var
+  BlendFunction: TBlendFunction;
+begin
+  // Set up the blending parameters
+  BlendFunction.BlendOp := AC_SRC_OVER;
+  BlendFunction.BlendFlags := 0;
+  BlendFunction.SourceConstantAlpha := Opacity;
+  BlendFunction.AlphaFormat := AC_SRC_OVER;
+
+  // Perform the alpha blending
+  AlphaBlend(
+    Self.Handle, Dest.Left, Dest.Top, Dest.Width, Dest.Height,
+    Canvas.Handle, Source.Left, Source.Top, Source.Width, Source.Height,
+    BlendFunction
+  );
+end;
+
+procedure TCanvasHelper.GDIText(Text: string; Rectangle: TRect; AlignH,
+  AlignV: TLayout; Angle: integer);
+var
+  AFont: TGPFont;
+  AFormat: TGPStringFormat;
+  FontStyle: integer;
+begin
+  // Font Style
+  FontStyle := 0;
+  if fsBold in Font.Style then
+    FontStyle := FontStyle or FontStyleBold;
+  if fsItalic in Font.Style then
+    FontStyle := FontStyle or FontStyleItalic;
+  if fsUnderline in Font.Style then
+    FontStyle := FontStyle or FontStyleUnderline;
+  if fsStrikeOut in Font.Style then
+    FontStyle := FontStyle or FontStyleStrikeout;
+
+  // Font
+  AFont := TGPFont.Create(Font.Name, Font.Size, FontStyle, UnitPixel);
+  AFormat:= TGPStringFormat.Create;
+  try
+    AFormat.SetAlignment(StringAlignment(integer(AlignH)));
+    AFormat.SetLineAlignment(StringAlignment(integer(AlignV)));
+
+    // Draw
+    DrawText(Self, Text, Rectangle, AFont, AFormat, GetRGB(Font.Color).MakeGDIBrush, Angle);
+  finally
+    AFont.Free;
+    AFormat.Free;
+  end;
 end;
 
 procedure TCanvasHelper.GDITint(Rectangle: TRect; Color: TColor; Opacity: byte = 75);

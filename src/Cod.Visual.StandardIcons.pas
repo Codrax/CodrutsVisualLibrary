@@ -11,6 +11,7 @@ uses
   Messaging,
   Types,
   Vcl.Styles,
+  Cod.VarHelpers,
   Vcl.Themes,
   Windows;
 

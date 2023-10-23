@@ -282,7 +282,7 @@ type
     property BmpCustomTrColor: boolean read FCustTColor write SetFCustColor default false;
 
     property ShowCaption: boolean read FEnableCaption write SetShowCaption default true;
-    property UseAccentColor: CAccentColor read FAccent write SetAccentColor default acAccentAdjust;
+    property UseAccentColor: CAccentColor read FAccent write SetAccentColor default CAccentColor.AccentAdjust;
 
     property GradientOptions : CButtonGradientSet read FGradientSet write SetGradient;
     property ControlStyle : TControlStyle read FControlStyle write FControlStyle;
@@ -428,7 +428,7 @@ procedure CButton.ApplyAccentColor;
 var
   AccColor: TColor;
 begin
-  if FAccent = acNone then
+  if FAccent = CAccentColor.None then
     Exit;
 
   AccColor := GetAccentColor(FAccent);
@@ -447,7 +447,7 @@ begin
   if FPreset.FpKind = CButtonPreset.cbprGlobalApplyColor then
     FPreset.FrColor := gspresetcolor;
 
-    if FAccent = acNone then
+    if FAccent = CAccentColor.None then
     if FPreset.Color <> clWhite then begin
       FTextColors.FEnter := clWhite;
       FTextColors.FDown := ChangeColorSat(FTextColors.Leave,-5);
@@ -953,7 +953,7 @@ begin
 
   FMBTColor := clWhite;
 
-  FAccent := acAccentAdjust;
+  FAccent := CAccentColor.AccentAdjust;
   ApplyAccentColor;
 
   Width := 110;
@@ -1585,7 +1585,7 @@ procedure CButton.SetAccentColor(const Value: CAccentColor);
 begin
   FAccent := Value;
 
-  if Value <> acNone then
+  if Value <> CAccentColor.None then
     ApplyAccentColor;
 
   Paint;

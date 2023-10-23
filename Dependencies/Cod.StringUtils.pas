@@ -47,17 +47,21 @@ interface
   function StrPos(SubString: string; MainString: string; index: integer = 1; offset: integer = 0; Flags: TStringFindFlags = []): integer;
   function InString(SubString, MainString: string; Flags: TStringFindFlags = []): boolean;
 
+  // Search Utilities
+  function ClearStringSimbols(MainString: string): string;
+
   // String List
   procedure InsertStListInStList(insertindex: integer; SubStrList: TStringList; var ParentStringList: TStringList);
   function StringToStringList(str: string; Separator: string = #13): TStringList;
   function StringToArray(str: string; Separator: string = #13): TArray<string>;
   function StringListToString(stringlist: TStringList; Separator: string = #13): string;
-  procedure ArrayToStringList(AArray: TArray<string>; var StringList: TStringList);
+  function StringListArray(stringlist: TStringList): TArray<string>;
+  procedure ArrayToStringList(AArray: TArray<string>; StringList: TStringList);
   function ArrayToString(AArray: TArray<string>; Separator: string = ', '): string;
 
 const
-  allchars = ['0'..'9', 'a'..'z', 'A'..'Z', '~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '-', '=', '+', '[', ']', '{', '}', ';', ':', '"', '\', '|', '<', '>', ',', '.', '/', '?', ' '];
-  symbolchars : TArray<String> = ['~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '-', '=', '+', '[', ']', '{', '}', ';', ':', '"', '\', '|', '<', '>', ',', '.', '/', '?'];
+  allchars = ['0'..'9', 'a'..'z', 'A'..'Z', '~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '-', '=', '+', '[', ']', '{', '}', ';', ':', '"', '\', '|', '<', '>', ',', '.', '/', '?', #39, '`', ' '];
+  symbolchars : TArray<String> = ['~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '-', '=', '+', '[', ']', '{', '}', ';', ':', '"', '\', '|', '<', '>', ',', '.', '/', '?', #39, '`'];
   superspr : TArray<String> = ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹','⁺','⁻','⁼','⁽','⁾', '⁄','ᵃ', 'ᵇ', 'ᶜ', 'ᵈ', 'ᵉ', 'ᶠ', 'ᵍ', 'ʰ', 'ⁱ', 'ʲ', 'ᵏ', 'ˡ', 'ᵐ', 'ⁿ', 'ᵒ', 'ᵖ', 'q', 'ʳ', 'ˢ', 'ᵗ', 'ᵘ', 'ᵛ', 'ʷ', 'ˣ', 'ʸ', 'ᶻ', 'ᴬ', 'ᴮ', 'C', 'ᴰ', 'ᴱ', 'F', 'ᴳ', 'ᴴ', 'ᴵ', 'ᴶ', 'ᴷ', 'ᴸ', 'ᴹ', 'ᴺ', 'ᴼ', 'ᴾ', 'Q', 'ᴿ', 'S', 'ᵀ', 'ᵁ', 'ⱽ', 'ᵂ', 'X', 'Y', 'Z'];
   subspr : TArray<String> = ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉','+','-','=','(',')', '⁄', 'ₐ', 'b', 'c', 'd', 'ₑ', 'f', 'g', 'ₕ', 'ᵢ', 'j', 'ₖ', 'ₗ', 'ₘ', 'ₙ', 'ₒ', 'ₚ', 'q', 'ᵣ', 'ₛ', 'ₜ', 'ᵤ', 'ᵥ', 'w', 'ₓ', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
@@ -436,6 +440,15 @@ begin
     end;
 end;
 
+function ClearStringSimbols(MainString: string): string;
+var
+  I: Integer;
+begin
+  Result := MainString;
+  for I := 0 to High(SymbolChars) do
+    Result := Result.Replace(SymbolChars[I], '')
+end;
+
 function StrCopy(MainString: string; frompos, topos: integer; justcontent: boolean): string;
 begin
   if justcontent then
@@ -533,7 +546,16 @@ begin
     end;
 end;
 
-procedure ArrayToStringList(AArray: TArray<string>; var StringList: TStringList);
+function StringListArray(stringlist: TStringList): TArray<string>;
+var
+  I: Integer;
+begin
+  SetLength(Result, StringList.Count);
+  for I := 0 to StringList.Count-1 do
+    Result[I] := StringList[I];
+end;
+
+procedure ArrayToStringList(AArray: TArray<string>; StringList: TStringList);
 var
   I: Integer;
 begin

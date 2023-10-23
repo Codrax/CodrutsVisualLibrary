@@ -1,15 +1,18 @@
 unit Cod.Components;
 
+{$SCOPEDENUMS ON}
+
 interface
 
 uses
   Types, UITypes, Classes, System.UIConsts, Vcl.Graphics,
   Variants, System.Win.Registry, Winapi.Windows, SysUtils, System.DateUtils,
-  Cod.Registry;
+  Cod.Registry, TypInfo;
 
   type
-    CAccentColor = (acNone, acAccent, acAccentAdjust, acAccentCustom);
-    CCurrentTheme = (ctAuto, ctLight, ctDark);
+    CAccentColor = (None, Accent, AccentAdjust, AccentCustom);
+    CCurrentTheme = (Auto, Light, Dark);
+    CControlState = (Leave, Enter, Down);
 
     CComponentOnPaint = procedure(Sender: TObject) of object;
 
@@ -20,16 +23,18 @@ uses
     end;
 
     TMPersistent = class(TPersistent)
-    Owner : TPersistent;
-    constructor Create(AOwner : TPersistent); overload; virtual;
-  end;
+      Owner : TPersistent;
+      constructor Create(AOwner : TPersistent); overload; virtual;
+
+      procedure Assign(Source: TPersistent); override;
+    end;
 
     function GetColorSat(color: TColor; ofing: integer = 255): integer;
     function ChangeColorSat(clr: TColor; perc: integer): TColor;
 
-    function GetAccentColor(accent: CAccentColor): TColor;
+    function GetAccentColor(Accent: CAccentColor): TColor;
     function GetTheme: CCurrentTheme;
-    procedure SetTheme(changeto: CCurrentTheme);
+    procedure SetTheme(ChangeTo: CCurrentTheme);
     procedure SyncAccentColor;
     function IsAppsUseDarkTheme: Boolean;
 
@@ -40,6 +45,8 @@ uses
     AccentColor: TColor;
     AdjustedAccentColor: TColor;
     CustomAccentColor: TColor = $00C57517;
+
+    OnUpdateAccentColor: procedure;
 
     LastCheck: TDateTime;
     JustStarted: boolean;
@@ -109,15 +116,15 @@ begin
     SyncAccentColor
 end;
 
-function GetAccentColor(accent: CAccentColor): TColor;
+function GetAccentColor(Accent: CAccentColor): TColor;
 begin
   Result := 13924352;
   CheckForUpdateAccent;
 
-  case accent of
-    acAccent: Result := AccentColor;
-    acAccentAdjust: Result := AdjustedAccentColor;
-    acAccentCustom: Result := CustomAccentColor;
+  case Accent of
+    CAccentColor.Accent: Result := AccentColor;
+    CAccentColor.AccentAdjust: Result := AdjustedAccentColor;
+    CAccentColor.AccentCustom: Result := CustomAccentColor;
   end;
 end;
 
@@ -126,7 +133,7 @@ begin
   Result := CurrentTheme;
 end;
 
-procedure SetTheme(changeto: CCurrentTheme);
+procedure SetTheme(ChangeTo: CCurrentTheme);
 begin
   if changeto = CurrentTheme then
     Exit;
@@ -175,9 +182,51 @@ begin
 
   if CSat > 155 then
     AdjustedAccentColor := ChangeColorSat(AccentColor, (CSat - 155) * -1);
+
+  // Prop
+  if Assigned(OnUpdateAccentColor) then
+    OnUpdateAccentColor;
 end;
 
 { TMPersistent }
+
+function PropertyExists(Instance: TObject; const PropName: string): boolean; overload;
+var
+  AProp: PPropInfo;
+begin
+  AProp := GetPropInfo(PTypeInfo(Instance.ClassInfo), PropName);
+
+  Result := AProp <> nil;
+end;
+
+procedure TMPersistent.Assign(Source: TPersistent);
+var
+  APropName: string;
+  PropList: PPropList;
+  PropCount, i: Integer;
+begin
+  if Source is TMPersistent then
+  begin
+    PropCount := GetPropList(Source.ClassInfo, tkProperties, nil);
+    if PropCount > 0 then
+    begin
+      GetMem(PropList, PropCount * SizeOf(PPropInfo));
+      try
+        GetPropList(Source.ClassInfo, tkProperties, PropList);
+        for i := 0 to PropCount - 1 do
+          begin
+            APropName := string(PropList^[i]^.Name);
+            if PropertyExists(Self, APropName) then
+              SetPropValue(Self, APropName, GetPropValue(Source, string(PropList^[i]^.Name)));
+          end;
+      finally
+        FreeMem(PropList);
+      end;
+    end;
+  end
+  else
+    inherited Assign(Source);
+end;
 
 constructor TMPersistent.Create(AOwner: TPersistent);
 begin

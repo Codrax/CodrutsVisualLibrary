@@ -160,7 +160,7 @@ interface
   (* NTFT Compression *)
   function  CompressItem(const Path:string;Compress:Boolean; FolderRecursive: boolean = true):integer;
   function  CompressFile(const FileName:string;Compress:Boolean):integer;
-  function  CompressFolder(const FolderName:string;Recursive, Compress:Boolean):integer;
+  function  CompressFolder(const FolderName:string;Recursive, Compress:Boolean): integer;
 
   // Utilities
   function GetNTVersion: single;
@@ -217,7 +217,7 @@ begin
   begin
     Wnd := Application.Handle;
     wFunc := FO_DELETE;
-    pFrom := PChar( ReplaceWinPath(Path) );
+    pFrom := PChar( ReplaceWinPath(Path) + #0 );
 
     // Flags
     fFlags := FileIOFlags( Flags );
@@ -658,7 +658,8 @@ begin
   // Codrut Software
   if codsoft then begin
     result := result + 'CodrutSoftware\';
-    if create and (not TDirectory.Exists(result)) then TDirectory.CreateDirectory(result);
+    if create and (not TDirectory.Exists(result)) then
+      TDirectory.CreateDirectory(result);
   end;
 
   // Get Result & Create

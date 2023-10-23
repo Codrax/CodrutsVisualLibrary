@@ -11,6 +11,7 @@
 {                   -- WORK IN PROGRESS --                  }
 {***********************************************************}
 
+{$SCOPEDENUMS ON}
 
 unit Cod.Graphics;
 
@@ -18,7 +19,8 @@ interface
   uses
     Winapi.Windows, Winapi.Messages, Classes, Vcl.Graphics, System.Types, System.Math,
     Vcl.Forms, System.SysUtils, Imaging.pngimage, Imaging.GIFImg, Imaging.jpeg,
-    Cod.ColorUtils, Cod.VarHelpers, Cod.Types, Cod.StringUtils, Cod.GDI;
+    Cod.ColorUtils, Cod.VarHelpers, Cod.Types, Cod.StringUtils, Cod.GDI,
+    Cod.ArrayHelpers;
 
   type
     // Blur Function Dependencies
@@ -39,11 +41,11 @@ interface
 
     // Items
     TPent = array[0..4] of TPoint;
-    TDrawMode = (dmFill, dmFit, dmStretch, dmCenter, dmCenterFill,
-                 dmCenter3Fill, dmCenterFit, dmNormal, dmTile);
+    TDrawMode = (Fill, Fit, Stretch, Center, CenterFill, Center3Fill,
+      CenterFit, Normal, Tile); { Windows DWM use a Center3 Fill }
 
-    TTextFlag = (tffWordWrap, tffTop, tffVerticalCenter, tffBottom, tffLeft,
-                 tffCenter, tffRight, ttfNoClip, tffAuto);
+    TTextFlag = (WordWrap, Top, VerticalCenter, Bottom, Left, Center, Right,
+      NoClip, Auto);
     TTextFlags= set of TTextFlag;
 
   { Text }
@@ -60,6 +62,11 @@ interface
     FontSize: integer): integer; overload;
   procedure DrawTextRect(Canvas: TCanvas; ARect: TRect; Text: string;
     Flags: TTextFlags; AMargin: integer = 0);
+  function GetTextRect(Canvas: TCanvas; ARect: TRect; Text: string;
+    Flags: TTextFlags; AMargin: integer = 0): TRect;
+  function GetWordWrapLines(Canvas: TCanvas; Text: string;
+    ARect: TRect): TArray<string>;
+  function WordWrapGetLineHeight(Canvas: TCanvas; Text: string): integer;
 
   (* Draws inverted colored text *)
   procedure DrawInvertedText(const ACanvas: TCanvas; const Text: string; const X, Y: integer);
@@ -80,16 +87,19 @@ interface
   function CanvasToBitmap(Canvas: TCanvas): TBitMap;
   function RemoveColor(imgsrc: TBitMap; color: TColor): TBitMap;
   procedure DrawImageInRect(Canvas: TCanvas; Rect: TRect; Image: TGraphic;
-    DrawMode: TDrawMode = dmFill; ImageMargin: integer = 0;
+    DrawMode: TDrawMode = TDrawMode.Fill; ImageMargin: integer = 0;
     ClipImage: boolean = false);
   function GetDrawModeRects(Rect: TRect; Image: TGraphic; DrawMode:
-    TDrawMode = dmFill; ImageMargin: integer = 0): TArray<TRect>; overload;
+    TDrawMode = TDrawMode.Fill; ImageMargin: integer = 0): TArray<TRect>; overload;
   function GetDrawModeRect(Rect: TRect; Image: TGraphic; DrawMode:
-    TDrawMode = dmFill; ImageMargin: integer = 0): TRect; overload;
+    TDrawMode = TDrawMode.Fill; ImageMargin: integer = 0): TRect; overload;
 
   { Inversion Draw }
   procedure StretchInvertedMask(Source: TBitMap; Destination: TCanvas; DestRect: TRect); overload;
   procedure StretchInvertedMask(Source: TCanvas; Destination: TCanvas; DestRect: TRect); overload;
+
+  { Canvas Utils }
+  procedure CopyRectWithOpacity(Dest: TCanvas; DestRect: TRect; Source: TCanvas; SourceRect: TRect; Opacity: Byte);
 
   { Screen }
   procedure QuickScreenShot(var BitMap: TBitMap; Monitor: integer = -2);
@@ -220,10 +230,8 @@ end;
 procedure DrawTextRect(Canvas: TCanvas; ARect: TRect; Text: string; Flags: TTextFlags; AMargin: integer);
 var
   TextFormat: TTextFormat;
-  Words, Lines: TArray<string>;
-  Moved, Line, Top, LineHeight, HasBreak, I: integer;
-  NewStarted: boolean;
-  Temp: string;
+  Lines: TArray<string>;
+  Top, LineHeight, I: integer;
   R: TRect;
 begin
   // Margin
@@ -234,81 +242,37 @@ begin
   if Text = '' then
     Exit;
 
-  if tffAuto in Flags then
+  if TTextFlag.Auto in Flags then
     begin
       if Canvas.TextWidth(Text) > ARect.Width then
-        Flags := Flags + [tffWordWrap];
+        Flags := Flags + [TTextFlag.WordWrap];
     end;
 
-  if tffWordWrap in Flags then
+  if TTextFlag.WordWrap in Flags then
     begin
-      // Get Words
-      Words := GetAllSeparatorItems(Text, [' ']);
-
       // Line Settings
       TextFormat := [];
-      if tffLeft in Flags then
+      if TTextFlag.Left in Flags then
         TextFormat := TextFormat + [tfLeft];
-      if tffCenter in Flags then
+      if TTextFlag.Center in Flags then
         TextFormat := TextFormat + [tfCenter];
-      if tffRight in Flags then
+      if TTextFlag.Right in Flags then
         TextFormat := TextFormat + [tfRight];
-      if ttfNoClip in Flags then
+      if TTextFlag.NoClip in Flags then
         TextFormat := TextFormat + [tfNoClip];
 
-      // Move words to Lines
-      SetLength( Lines, 1);
-      NewStarted := true;
-
-      Moved := 0;
-      Line := 0;
-      repeat
-        // Add Word
-        Temp := Lines[Line];
-        if not NewStarted then
-          Temp := Temp + ' ';
-        Temp := Temp + Words[Moved];
-
-        // Break #13
-        HasBreak := Pos(#13, Temp);
-        if (HasBreak <> 0) and NewStarted then
-          begin
-            Temp := StrRemove(Temp, HasBreak, HasBreak);
-            HasBreak := Pos(#13, Temp);
-
-            if HasBreak <> 0 then
-              Words[Moved] := StrRemove(Words[Moved], Pos(#13, Words[Moved]), Pos(#13, Words[Moved]));
-          end;
-
-        if ( NewStarted or (Canvas.TextWidth(Temp) <= ARect.Width) ) and (HasBreak = 0) then
-          begin
-            Lines[Line] := Temp;
-
-            NewStarted := false;
-
-            // Increase
-            Inc( Moved );
-          end
-        else
-        // Start New Line
-          begin
-            Inc( Line );
-            SetLength( Lines, Line + 1);
-
-            NewStarted := true;
-          end;
-      until Moved >= Length( Words );
+      Lines := GetWordWrapLines(Canvas, Text, ARect);
 
       // Vertical Align
       Top := 0;
-      if tffVerticalCenter in Flags then
+      if TTextFlag.VerticalCenter in Flags then
         begin
           for I := 0 to High(Lines) do
             Top := Top + Canvas.TextHeight(Lines[I]);
 
           Top := round( ARect.Height / 2 - Top / 2 );
         end;
-      if tffBottom in Flags then
+      if TTextFlag.Bottom in Flags then
         begin
           for I := 0 to High(Lines) do
             Top := Top + Canvas.TextHeight(Lines[I]);
@@ -321,9 +285,7 @@ begin
       // Draw
       for I := 0 to High(Lines) do
         begin
-          LineHeight := Canvas.TextHeight(Lines[I]);
-          if Lines[I] = '' then
-            LineHeight := Canvas.TextHeight('I');
+          LineHeight := WordWrapGetLineHeight(Canvas, Lines[I]);
 
           R := Rect( ARect.Left, Top, ARect.Right, Top + LineHeight );
 
@@ -335,19 +297,176 @@ begin
   else
     begin
       TextFormat := [tfSingleLine];
-      if tffCenter in Flags then
+      if TTextFlag.Center in Flags then
         TextFormat := TextFormat + [tfCenter];
-      if tffRight in Flags then
+      if TTextFlag.Right in Flags then
         TextFormat := TextFormat + [tfRight];
-      if tffVerticalCenter in Flags then
+      if TTextFlag.VerticalCenter in Flags then
         TextFormat := TextFormat + [tfVerticalCenter];
-      if tffBottom in Flags then
+      if TTextFlag.Bottom in Flags then
         TextFormat := TextFormat + [tfBottom];
-      if ttfNoClip in Flags then
+      if TTextFlag.NoClip in Flags then
         TextFormat := TextFormat + [tfNoClip];
 
       Canvas.TextRect(ARect, Text, TextFormat);
     end;
+end;
+
+function GetTextRect(Canvas: TCanvas; ARect: TRect; Text: string;
+    Flags: TTextFlags; AMargin: integer = 0): TRect;
+var
+  TextFormat: TTextFormat;
+  Lines: TArray<string>;
+  Top, LineHeight, I: integer;
+begin
+  // Margin
+  if AMargin <> 0 then
+    ARect.Inflate(-AMargin, -AMargin);
+
+  // Ignore
+  if Text = '' then
+    Exit;
+
+  if TTextFlag.Auto in Flags then
+    begin
+      if Canvas.TextWidth(Text) > ARect.Width then
+        Flags := Flags + [TTextFlag.WordWrap];
+    end;
+
+  if TTextFlag.WordWrap in Flags then
+    begin
+      // Line Settings
+      TextFormat := [];
+      if TTextFlag.Left in Flags then
+        TextFormat := TextFormat + [tfLeft];
+      if TTextFlag.Center in Flags then
+        TextFormat := TextFormat + [tfCenter];
+      if TTextFlag.Right in Flags then
+        TextFormat := TextFormat + [tfRight];
+      if TTextFlag.NoClip in Flags then
+        TextFormat := TextFormat + [tfNoClip];
+
+      // Lines
+      Lines := GetWordWrapLines(Canvas, Text, ARect);
+
+      // Vertical Align
+      Top := 0;
+      if TTextFlag.VerticalCenter in Flags then
+        begin
+          for I := 0 to High(Lines) do
+            Top := Top + Canvas.TextHeight(Lines[I]);
+
+          Top := round( ARect.Height / 2 - Top / 2 );
+        end;
+      if TTextFlag.Bottom in Flags then
+        begin
+          for I := 0 to High(Lines) do
+            Top := Top + Canvas.TextHeight(Lines[I]);
+
+          Top := ARect.Height - Top;
+        end;
+
+      Top := Top + ARect.Top;
+
+      // Result
+      Result := ARect;
+      Result.Top := Top;
+
+      // Draw
+      for I := 0 to High(Lines) do
+        begin
+          LineHeight := WordWrapGetLineHeight(Canvas, Lines[I]);
+
+          Top := Top + LineHeight;
+        end;
+
+      // Result
+      Result.Bottom := Top;
+    end
+  else
+    begin
+      Result := ARect;
+    end;
+end;
+
+function GetWordWrapLines(Canvas: TCanvas; Text: string; ARect: TRect): TArray<string>;
+var
+  Temp: string;
+  Words: TArray<string>;
+  Line, WordWidth, LineWidth: integer;
+  I, Index: Integer;
+procedure AddLine;
+begin
+  Inc(Line);
+  SetLength(Result, Line + 1);
+
+  LineWidth := 0;
+end;
+begin
+  // Get Words
+  Words := GetAllSeparatorItems(Text, [' ']);
+  for I := 0 to High(Words)-1 do
+    Words[I] := Words[I] + ' ';
+
+  // Split values with #13
+  I := 0;
+  while I < Length(Words) do
+    begin
+      Index := Words[I].IndexOf(#13);
+
+      if Index <> -1 then
+        begin
+          if Index = 0 then
+            Index := 1;
+
+          Temp := Words[I].Remove(0, Index);
+          Words.Insert(I+1, Temp);
+
+          Words[I] := Words[I].Remove(Index, Words[I].Length-Index);
+        end;
+
+      Inc(I);
+    end;
+
+  // Data
+  Line := 0;
+  LineWidth := 0;
+
+  // Result
+  SetLength(Result, 1);
+
+  // Step
+  for I := 0 to High(Words) do
+    begin
+      // Word
+      Temp := Words[I];
+
+      if Temp = #13 then
+        begin
+          AddLine;
+          Continue;
+        end;
+
+      // Width
+      WordWidth := Canvas.TextWidth(Temp);
+
+      // New Line
+      if LineWidth + WordWidth > ARect.Width then
+        AddLine;
+
+      // Add to line
+      Result[Line] := ConCat(Result[Line], Temp);
+
+      // Add
+      LineWidth := LineWidth + WordWidth;
+    end;
+end;
+
+function WordWrapGetLineHeight(Canvas: TCanvas; Text: string): integer;
+begin
+  Result := Canvas.TextHeight(Text);
+  if Result = 0 then
+    Result := Canvas.TextHeight('|');
 end;
 
 procedure DrawInvertedText(const ACanvas: TCanvas; const Text: string; const X, Y: integer);
@@ -730,7 +849,7 @@ begin
   if Image <> nil then
   case DrawMode of
     // Fill
-    TDrawMode.dmFill: begin
+    TDrawMode.Fill: begin
       Result[0] := Rect;
 
       A := Result[0].Width / Image.Width ;
@@ -746,7 +865,7 @@ begin
             Result[0].Height := trunc(B);
     end;
     // Fit
-    TDrawMode.dmFit: begin
+    TDrawMode.Fit: begin
       Result[0] := Rect;
 
       A := Result[0].Width / Image.Width ;
@@ -762,11 +881,11 @@ begin
             Result[0].Height := trunc(B);
     end;
     // Stretch
-    TDrawMode.dmStretch: begin
+    TDrawMode.Stretch: begin
       Result[0] := Rect;
     end;
     // Center
-    TDrawMode.dmCenter: begin
+    TDrawMode.Center: begin
       Result[0].Left := Rect.CenterPoint.X - Image.Width div 2;
       Result[0].Right := Rect.CenterPoint.X + Image.Width div 2;
 
@@ -774,7 +893,7 @@ begin
       Result[0].Bottom := Rect.CenterPoint.Y + Image.Height div 2;
     end;
     // Center Fill
-    TDrawMode.dmCenterFill: begin
+    TDrawMode.CenterFill: begin
       Result[0] := Rect;
 
       A := Result[0].Width / Image.Width ;
@@ -798,7 +917,7 @@ begin
       Result[0].Bottom := Result[0].Bottom - (H - Rect.Height) div 2;
     end;
     // Center Fill
-    TDrawMode.dmCenter3Fill: begin
+    TDrawMode.Center3Fill: begin
       Result[0] := Rect;
 
       A := Result[0].Width / Image.Width ;
@@ -822,7 +941,7 @@ begin
       Result[0].Bottom := Result[0].Bottom - (H - Rect.Height) div 3;
     end;
     // Center Fit
-    TDrawMode.dmCenterFit: begin
+    TDrawMode.CenterFit: begin
       Result[0] := Rect;
 
       A := Result[0].Width / Image.Width ;
@@ -846,7 +965,7 @@ begin
       Result[0].Bottom := Result[0].Bottom + (Rect.Height - H) div 2;
     end;
     // Normal
-    TDrawMode.dmNormal: begin
+    TDrawMode.Normal: begin
       Result[0].Left := Rect.Left;
       Result[0].Right := Result[0].Left + Image.Width;
 
@@ -854,7 +973,7 @@ begin
       Result[0].Bottom := Result[0].Bottom + Image.Height;
     end;
     // Tile
-    TDrawMode.dmTile: begin
+    TDrawMode.Tile: begin
       SetLength(Result, 0);
       A := Rect.Top;
       repeat
@@ -925,15 +1044,33 @@ begin
     end;
 end;
 
+procedure StretchInvertedMask(Source: TBitMap; Destination: TCanvas; DestRect: TRect);
+begin
+  StretchInvertedMask(Source.Canvas, Destination, DestRect);
+end;
+
 procedure StretchInvertedMask(Source: TCanvas; Destination: TCanvas; DestRect: TRect);
 begin
   BitBlt(Destination.Handle, DestRect.Left, DestRect.Top, DestRect.Width, DestRect.Height,
     Source.Handle, 0, 0, SRCINVERT);
 end;
 
-procedure StretchInvertedMask(Source: TBitMap; Destination: TCanvas; DestRect: TRect);
+procedure CopyRectWithOpacity(Dest: TCanvas; DestRect: TRect; Source: TCanvas; SourceRect: TRect; Opacity: Byte);
+var
+  BlendFunction: TBlendFunction;
 begin
-  StretchInvertedMask(Source.Canvas, Destination, DestRect);
+  // Set up the blending parameters
+  BlendFunction.BlendOp := AC_SRC_OVER;
+  BlendFunction.BlendFlags := 0;
+  BlendFunction.SourceConstantAlpha := Opacity;
+  BlendFunction.AlphaFormat := AC_SRC_OVER;
+
+  // Perform the alpha blending
+  AlphaBlend(
+    Dest.Handle, DestRect.Left, DestRect.Top, DestRect.Width, DestRect.Height,
+    Source.Handle, SourceRect.Left, SourceRect.Top, SourceRect.Width, SourceRect.Height,
+    BlendFunction
+  );
 end;
 
 procedure QuickScreenShot(var BitMap: TBitMap; Monitor: integer);

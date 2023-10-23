@@ -22,23 +22,10 @@ interface
   Vcl.Styles, Vcl.Themes, UITypes, Types, Winapi.shlobj, Cod.Registry, Math,
   IOUtils, ActiveX, ComObj, Variants, ShellApi, Cod.ColorUtils,
   System.TypInfo, Vcl.Imaging.pngimage, PngFunctions, PsApi, Cod.Files, Cod.Types,
-  Cod.StringUtils, Winapi.Wbem, System.ImageList, Cod.MesssageConst;
+  Cod.StringUtils, Winapi.Wbem, System.ImageList, Cod.MesssageConst, IniFiles,
+  Cod.Windows;
 
   type
-    TWinArhitecture = (wa32bit, wa64bit);
-    TWinVersion = (wvnWin2000, wvnWinXp, wvnXp64, wvnVista2008, wvnWin72008R2, wvnWin8, wvnWin10);
-
-    TWinUX = (wuxActionCenter, wuxNotifications, wuxCalculator, wuxStore,
-    wuxSupport, wuxMaps, wuxNetwork, wuxCast, wuxWifi, wuxProject,
-    wuxBluetooth, wuxClock, wuxXbox, wuxMediaPlayer, wuxWeather,
-    wuxTaskSwitch, wuxSettings, wuxScreenClip, wuxPhotos, wuxPrintQueue,
-    wuxWinDefender, wuxStartMenu);
-
-    TWinSettingPage = (wspHome, wspFlightMode, wspBluetooth, wspCellular,
-    wspAccounts, wspLanguage, wspLocation, wspLockScreen, wspHotspot,
-    wspNotifications, wspPower, wspPrivacy, wspDisplay, wspWifi,
-    wspWorkplace);
-
     { If the number of attributes if ever changed, it is required to update the
     write atttributes procedure with the new number in mind!! }
 
@@ -62,16 +49,16 @@ interface
       function Length: integer;
     end;
 
-const
-  USER_PROFILE_PICTURES_LOCATION = '%PUBLIC%\AccountPictures\';
-
   { Forms }
   procedure CenterFormInForm(form, primaryform: TForm; alsoopen: boolean = false);
   procedure CenterFormOnScreen(form: TForm);
   procedure ChangeMainForm(NewForm: TForm);
   function MouseAboveForm(form: TForm): boolean;
+  procedure FormPositionSettings(Form: TForm; FileName: string; Load: boolean;
+    Closing: boolean = true);
 
   { Icons }
+  procedure GetIconStrIcon(IconString: string; var PngImage: TPngImage);
   procedure GetFileIcon(FileName: string; var PngImage: TPngImage; IconIndex: word = 0);
   procedure GetFileIconEx(FileName: string; var PngImage: TPngImage; IconIndex: word = 0; SmallIcon: boolean = false);
   function GetFileIconCount(FileName: string): integer;
@@ -81,6 +68,7 @@ const
   function IsAdministrator: boolean;
 
   function GetParameter(Index: integer): string;
+  function GetParameters: string;
 
   { Components }
   procedure CopyObject(ObjFrom, ObjTo: TObject);
@@ -103,39 +91,6 @@ const
   function GetGenericIconIndex( AExtension: string ): integer;
   function GetGenericFileIcon( AExtension: string; ALargeIcon: boolean = true ): TIcon;
 
-  { Windows API }
-  function GetWindowsVerByKernel: TWinVersion;
-  function IsWOW64Emulated: boolean;
-  function IsWow64Executable: Boolean;
-  function GetWindowsArhitecture: TWinArhitecture;
-  function NTKernelVersion: single;
-  function IdleTime: DWord;
-  function GetAccentColor(brightencolor: boolean = false): TColor;
-  function IsAppsUseDarkTheme: Boolean;
-  function IsSystemUseDarkTheme: Boolean;
-  function IsTransparencyEnabled: Boolean;
-  function GetUserNameString: string;
-  function GetCompleteUserName: string;
-  function GetFileTypeDescription(filetype: string): string;
-  function GetTaskbarHeight: integer;
-  function GetCurrentAppName: string;
-  function GetOpenProgramFileName: string;
-  function GetOpenProgramFileNameEx: ansistring;
-  function GetUserCLSID: string;
-  function GetUserGUID: string; (* This currently seems to not work/ is unrelated to user picture tasks *)
-  function GetUserProfilePicturePath(PrefferedResolution: string = '1080'): string;
-  (* Avalabile Resolutions are 1080, 448, 424, 208, 192, 96, 64, 48, 40, 32 *)
-  function GetUserProfilePictureEx: string;
-  procedure SetWallpaper(const FileName: string);
-  procedure MinimiseAllWindows;
-
-  procedure SimulateKeyPress32(key: Word; const shift: TShiftState; specialkey: Boolean);
-  procedure OpenWindowsUI(WinInterface: TWinUX; SuppressAnimation: boolean = false);
-  procedure OpenWindowsSettings(Page: TWinSettingPage);
-  procedure OpenWindowsUWPApp(AppURI: string);
-
-  procedure ShutDownWindows;
-
   { Debug }
   procedure Debug(Value: string);
 
@@ -144,15 +99,12 @@ const
   procedure PowerShellRun(Command: string; ShowConsole: boolean; Administrator: boolean = false; Directory: string = '');
   function PowerShellGetOutput(Command: string; ShowConsole: boolean; WaitFor: boolean = false; WantOutput: boolean = true): TStringList;
   procedure WaitForProgramExecution(CommandLine: string);
+  procedure HighlightItemExplorer(ItemPath: string);
 
-  { Window }
   procedure FlashWindowInTaskbar;
   function GetFormMonitorIndex(Form: TForm): integer;
 
-  { File and Folder Related Tasks }
-  function GetTreeSize ( path: string ): int64;
-  procedure CreateShortcut(const PathObj, PathLink, Desc, Param: string);
-
+  { File }
   function GetAllFileProperties(filename: string; allowempty: boolean = true): TStringList;
   function GetFileProperty(FileName, PropertyName: string): string;
   //External
@@ -168,29 +120,6 @@ procedure CenterFormOnScreen(form: TForm);
 begin
   form.Left := Screen.Width div 2 - form.Width div 2;
   form.Top := Screen.Height div 2 - form.Height div 2;
-end;
-
-function GetTreeSize ( path: string ): int64;
-var
- tsr: TSearchRec;
-begin
- result := 0;
- path := IncludeTrailingPathDelimiter ( path );
- if FindFirst ( path + '*', faAnyFile, tsr ) = 0 then begin
-  repeat
-   if ( tsr.attr and faDirectory ) > 0 then begin
-    if ( tsr.name <> '.' ) and ( tsr.name <> '..' ) then
-     inc ( result, GetTreeSize ( path + tsr.name ) );
-   end
-   else
-   begin
-    if tsr.size < 0 then
-      SHowMessage('');
-    inc ( result, tsr.size );
-   end;
-  until FindNext ( tsr ) <> 0;
-  FindClose ( tsr );
- end;
 end;
 
 procedure ChangeMainForm(NewForm: TForm);
@@ -219,6 +148,81 @@ begin
     and (mouse.CursorPos.X < form.Left + form.Width)
     and (mouse.CursorPos.Y < form.Top + form.Height) then
       Result := true;
+end;
+
+procedure FormPositionSettings(Form: TForm; FileName: string;
+  Load, Closing: boolean);
+const
+  SECT_DAT = 'Positions';
+var
+  Ini: TIniFile;
+
+  // Previous
+  PrevState: TWindowState;
+  PrevValue: byte;
+  PrevEn: boolean;
+begin
+  with Form do
+    begin
+      if Load and not TFile.Exists(FileName) then
+        begin
+          Left := (Screen.Width - Width) div 2;
+          Top := (Screen.Height - Height) div 2;
+        end;
+
+      Ini := TIniFile.Create(FileName);
+      with Ini do
+        try
+          if Load then
+            begin
+              WindowState := TWindowState.wsNormal;
+
+              Left := ReadInteger(SECT_DAT, 'Left', Left);
+              Top := ReadInteger(SECT_DAT, 'Top', Top);
+              Width := ReadInteger(SECT_DAT, 'Width', Width);
+              Height := ReadInteger(SECT_DAT, 'Height', Height);
+
+              WindowState := TWindowState(ReadInteger(SECT_DAT, 'State', integer(WindowState)));
+              if WindowState = wsMinimized then
+                WindowState := wsNormal;
+            end
+          else
+            begin
+              PrevEn := false;
+              PrevValue := 255;
+
+              WriteInteger(SECT_DAT, 'State', integer(WindowState));
+              if WindowState = wsMinimized then
+                begin
+                  PrevEn := AlphaBlend;
+                  PrevValue := AlphaBlendValue;
+
+                  AlphaBlend := true;
+                  AlphaBlendValue := 0;
+                end;
+              PrevState := WindowState;
+              WindowState := TWindowState.wsNormal;
+
+              WriteInteger(SECT_DAT, 'Left', Left);
+              WriteInteger(SECT_DAT, 'Top', Top);
+              WriteInteger(SECT_DAT, 'Width', Width);
+              WriteInteger(SECT_DAT, 'Height', Height);
+
+              // Revert
+              if not Closing then
+                begin
+                  WindowState := PrevState;
+                  if WindowState = wsMinimized then
+                    begin
+                      AlphaBlend := PrevEn;
+                      AlphaBlendValue := PrevValue;
+                    end;
+                end;
+            end;
+        finally
+          Free;
+        end;
+    end;
 end;
 
 procedure RegisterFileType(FileExt, FileTypeDescription,
@@ -361,159 +365,6 @@ begin
   end;
 end;
 
-function GetFileTypeDescription(filetype: string): string;
-begin
-  if filetype = '' then
-    Exit('File Folder');
-
-  Result := STRING_UNKNOWN;
-end;
-
-function GetTaskbarHeight: integer;
-var
-  R: TRect;
-begin
-  SystemParametersInfo (Spi_getworkarea,0,@r,0);
-  Result:=screen.Height-r.Bottom;
-end;
-
-function GetCurrentAppName: string;
-var
-  h: hWnd;
-begin
-  h := GetForegroundWindow;
-  SetLength(Result, GetWindowTextLength(h) + 1);
-  GetWindowText(h, PChar(Result), GetWindowTextLength(h) + 1);
-end;
-
-function GetOpenProgramFileName: String;
-var
-  pid     : DWORD;
-  hProcess: THandle;
-  path    : array[0..4095] of Char;
-begin
-  GetWindowThreadProcessId(GetForegroundWindow, pid);
-
-  hProcess := OpenProcess(PROCESS_QUERY_INFORMATION or PROCESS_VM_READ, FALSE, pid);
-  if hProcess <> 0 then
-    try
-      if GetModuleFileNameEx(hProcess, 0, @path[0], Length(path)) = 0 then
-        RaiseLastOSError;
-
-      result := path;
-    finally
-      CloseHandle(hProcess);
-    end
-  else
-    RaiseLastOSError;
-end;
-
-Function GetOpenProgramFileNameEx : ansistring;
-var
-  S : array[0..max_path] of char; // somplace to put the answer
-  H : longword; // the window to be trapped
-begin
-  H := getforegroundwindow;
-  Getwindowmodulefilename(h,s,max_path);
-  result := ansistring(S);
-end;
-
-function GetUserCLSID: string;
-var
-  UserName, DomainName: string;
-  UserSID: PSID;
-  SIDSize: DWORD;
-  SIDString: PChar;
-  DomainSize: DWORD;
-  SIDUse: SID_NAME_USE;
-begin
-  // Get the name of the currently logged-in user
-  Username := GetUserNameString;
-
-  // Lookup the account SID associated with the user name
-  SIDSize := 0;
-  DomainSize := 0;
-  LookupAccountName(nil, PChar(UserName), nil, SIDSize, nil, DomainSize, SIDUse);
-  UserSID := AllocMem(SIDSize);
-  try
-    SetLength(DomainName, DomainSize);
-    if not LookupAccountName(nil, PChar(UserName), UserSID, SIDSize, PChar(DomainName),
-        DomainSize, SIDUse) then
-      RaiseLastOSError;
-
-    // Convert the binary SID to a string format
-    if not ConvertSidToStringSid(UserSID, SIDString) then
-      RaiseLastOSError;
-    try
-      Result := SIDString;
-    finally
-      LocalFree(HLOCAL(SIDString));
-    end;
-  finally
-    FreeMem(UserSID);
-  end;
-end;
-
-function GetUserGUID: string;
-var
-  guid: TGUID;
-begin
-  if CoCreateGuid(guid) <> S_OK then
-    RaiseLastOSError;
-  Result := GUIDToString(guid);
-end;
-
-function GetUserProfilePicturePath(PrefferedResolution: string): string;
-var
-  L: TArray<string>;
-  Path: string;
-  Index: integer;
-  I: Integer;
-begin
-  Path := IncludeTrailingPathDelimiter( ReplaceWinPath(USER_PROFILE_PICTURES_LOCATION) ) +
-           GetUserCLSID + '\';
-
-  L := TDirectory.GetFiles( Path );
-
-  Index := 0;
-  if Length( L ) > 0 then
-    begin
-      for I := 0 to High(L) do
-        if Pos( 'Image' + PrefferedResolution, L[I]) <> 0 then
-          begin
-            Index := I;
-
-            Break;
-          end;
-
-      Result := L[Index];
-    end
-      else
-        Result := '';
-end;
-
-function GetUserProfilePictureEx: string;
-begin
-  Result :=
-    IncludeTrailingPathDelimiter( GetUserShellLocation(TUserShellLocation.shlAppDataLocal) )
-      + 'Microsoft\Windows\AccountPicture\UserImage.jpg';
-end;
-
-procedure SetWallpaper(const FileName: string);
-begin
-  if not SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, PChar(FileName), SPIF_UPDATEINIFILE) then
-    raise Exception.Create(ERROR_SET_WALLPAPER);
-end;
-
-procedure MinimiseAllWindows;
-var
-  hTaskBar: HWND;
-begin
-  hTaskBar := FindWindow('Shell_TrayWnd', nil);
-  if hTaskBar <> 0 then
-    SendMessage(hTaskBar, WM_COMMAND, MAKEWPARAM(419, 0), 0);
-end;
-
 procedure FlashWindowInTaskbar;
 var
   Flash: FLASHWINFO;
@@ -544,130 +395,6 @@ begin
       Exit( Screen.Monitors[I].MonitorNum );
 end;
 
-procedure SimulateKeyPress32(key: Word; const shift: TShiftState;
-  specialkey: Boolean);
-type
-  TShiftKeyInfo = record
-    shift: Byte;
-    vkey: Byte;
-  end;
-  ByteSet = set of 0..7;
-const
-  shiftkeys: array [1..3] of TShiftKeyInfo = (
-    (shift: Ord(ssCtrl) ; vkey: VK_CONTROL),
-    (shift: Ord(ssShift) ; vkey: VK_SHIFT),
-    (shift: Ord(ssAlt) ; vkey: VK_MENU)
-  );
-var
-  flag: DWORD;
-  bShift: ByteSet absolute shift;
-  j: Integer;
-begin
-  for j := 1 to 3 do
-  begin
-    if shiftkeys[j].shift in bShift then
-      keybd_event(
-        shiftkeys[j].vkey, MapVirtualKey(shiftkeys[j].vkey, 0), 0, 0
-    );
-  end;
-  if specialkey then
-    flag := KEYEVENTF_EXTENDEDKEY
-  else
-    flag := 0;
-
-  keybd_event(key, MapvirtualKey(key, 0), flag, 0);
-  flag := flag or KEYEVENTF_KEYUP;
-  keybd_event(key, MapvirtualKey(key, 0), flag, 0);
-
-  for j := 3 downto 1 do
-  begin
-    if shiftkeys[j].shift in bShift then
-      keybd_event(
-        shiftkeys[j].vkey,
-        MapVirtualKey(shiftkeys[j].vkey, 0),
-        KEYEVENTF_KEYUP,
-        0
-      );
-  end;
-end;
-
-procedure OpenWindowsUI(WinInterface: TWinUX; SuppressAnimation: boolean);
-var
-  URI, PARAM: string;
-begin
-  URI := '';
-  PARAM := '';
-
-  case WinInterface of
-    wuxActionCenter: URI := 'ms-actioncenter:controlcenter/&suppressAnimations=' + BooleanToString(SuppressAnimation);
-    wuxNotifications: URI := 'ms-actioncenter://';
-    wuxCalculator: URI := 'ms-calculator://';
-    wuxStore: URI := 'ms-windows-store://';
-    wuxSupport: URI := 'ms-contact-support://';
-    wuxMaps: URI := 'ms-drive-to://';
-    wuxNetwork: URI := 'ms-availablenetworks://';
-    wuxCast: URI := 'ms-actioncenter:controlcenter/cast&suppressAnimations=' + BooleanToString(SuppressAnimation);
-    wuxWifi: URI := 'ms-actioncenter:controlcenter/wifi&suppressAnimations=' + BooleanToString(SuppressAnimation);
-    wuxProject: URI := 'ms-actioncenter:controlcenter/project&suppressAnimations=' + BooleanToString(SuppressAnimation);
-    wuxBluetooth: URI := 'ms-actioncenter:controlcenter/bluetooth&suppressAnimations=' + BooleanToString(SuppressAnimation);
-    wuxClock: URI := 'ms-clock://';
-    wuxXbox: URI := 'msxbox://';
-    wuxMediaPlayer: URI := 'ms-playto-audio://';
-    wuxWeather: URI := 'msnweather://';
-    wuxTaskSwitch: URI := 'ms-taskswitcher://';
-    wuxSettings: URI := 'ms-settings://';
-    wuxScreenClip: URI := 'ms-screenclip://';
-    wuxPhotos: URI := 'ms-photos://';
-    wuxPrintQueue: URI := 'ms-print-queue://';
-    wuxWinDefender: URI := 'windowsdefender://';
-    wuxStartMenu: SimulateKeyPress32( VK_LWIN, [], true);
-  end;
-
-  // Run
-  if URI <> '' then
-    ShellExecute(0, 'open', PChar(URI), PCHAR(PARAM), nil, 0);
-end;
-
-procedure OpenWindowsSettings(Page: TWinSettingPage);
-var
-  URI: string;
-begin
-  case Page of
-    wspHome: URI := 'ms-settings://';
-    wspFlightMode: URI := 'ms-settings-airplanemode://';
-    wspBluetooth: URI := 'ms-settings-bluetooth://';
-    wspCellular: URI := 'ms-settings-cellular://';
-    wspAccounts: URI := 'ms-settings-emailandaccounts://';
-    wspLanguage: URI := 'ms-settings-language://';
-    wspLocation: URI := 'ms-settings-location://';
-    wspLockScreen: URI := 'ms-settings-lock://';
-    wspHotspot: URI := 'ms-settings-mobilehotspot://';
-    wspNotifications: URI := 'ms-settings-notifications://';
-    wspPower: URI := 'ms-settings-power://';
-    wspPrivacy: URI := 'ms-settings-privacy://';
-    wspDisplay: URI := 'ms-settings-screenrotation://';
-    wspWifi: URI := 'ms-settings-wifi://';
-    wspWorkplace: URI := 'ms-settings-workplace://';
-  end;
-
-  // Run
-  ShellExecute(0, 'open', PChar(URI), '', nil, 0);
-end;
-
-procedure OpenWindowsUWPApp(AppURI: string);
-var
-  URI: string;
-begin
-  URI := AppURI + '://';
-
-  ShellExecute(0, 'open', PChar(URI), PCHAR(URI), nil, 0);
-end;
-
-procedure ShutDownWindows;
-begin
-  ShellExecute(0, 'open', 'powershell', '-c "(New-Object -Com Shell.Application).ShutdownWindows()"', nil, 0);
-end;
-
 procedure Debug(Value: string);
 begin
   OutPutDebugString( PChar(Value) );
@@ -688,7 +415,7 @@ begin
   else
     Parameter := SW_HIDE;
 
-  ShellExecute( 0, PChar(OperationType), PChar(Command), PChar(Parameters), PChar(Directory), Parameter);
+  ShellExecute(0, PChar(OperationType), PChar(Command), PChar(Parameters), PChar(Directory), Parameter);
 end;
 
 procedure PowerShellRun(Command: string; ShowConsole: boolean; Administrator: boolean; Directory: string);
@@ -859,239 +586,36 @@ begin
     end;
 end;
 
-procedure CreateShortcut(const PathObj, PathLink, Desc, Param: string);
-var
-  IObject: IUnknown;
-  SLink: IShellLink;
-  PFile: IPersistFile;
+procedure HighlightItemExplorer(ItemPath: string);
 begin
-  IObject:=CreateComObject(CLSID_ShellLink);
-  SLink:=IObject as IShellLink;
-  PFile:=IObject as IPersistFile;
-  with SLink do
-  begin
-    SetArguments(PChar(Param));
-    SetDescription(PChar(Desc));
-    SetPath(PChar(PathObj));
-    SetWorkingDirectory(PChar(ExtractFileDir(PathObj)));
-  end;
-  PFile.Save(PWChar(WideString(PathLink)), FALSE);
-end;
-
-function GetWindowsVerByKernel: TWinVersion;
-var
-  NTKernel: single;
-begin
-  NTKernel := NTKernelVersion;
-  if NTKernel <= 5  then
-    Result := wvnWin2000
-      else
-        if NTKernel <= 5.1 then
-          Result := wvnWinXp
-            else
-              if NTKernel <= 5.2 then
-                Result := wvnXp64
-                  else
-                    if NTKernel <= 6.0 then
-                      Result := wvnVista2008
-                        else
-                          if NTKernel <= 6.1 then
-                            Result := wvnWin72008R2
-                              else
-                                if NTKernel <= 6.2 then
-                                  Result := wvnWin8
-                                    else
-                                      Result := wvnWin10;
-end;
-
-function IsWOW64Emulated: Boolean;
-var
-  IsWow64: BOOL;
-begin
-  // Check if the current process is running under WOW64
-  if IsWow64Process(GetCurrentProcess, IsWow64) then
-    Result := IsWow64
-  else
-    Result := False;
-end;
-
-function IsWow64Executable: Boolean;
-type
-  TIsWow64Process = function(AHandle: DWORD; var AIsWow64: BOOL): BOOL; stdcall;
-
-var
-  hIsWow64Process: TIsWow64Process;
-  hKernel32: DWORD;
-  IsWow64: BOOL;
-
-begin
-  Result := True;
-
-  hKernel32 := Winapi.Windows.LoadLibrary('kernel32.dll');
-  if hKernel32 = 0 then Exit;
-
-  try
-    @hIsWow64Process := Winapi.Windows.GetProcAddress(hKernel32, 'IsWow64Process');
-    if not System.Assigned(hIsWow64Process) then
-      Exit;
-
-    IsWow64 := False;
-    if hIsWow64Process(Winapi.Windows.GetCurrentProcess, IsWow64) then
-      Result := not IsWow64;
-
-  finally
-    Winapi.Windows.FreeLibrary(hKernel32);
-  end;
-end;
-
-function GetWindowsArhitecture: TWinArhitecture;
-begin
-  if IsWOW64Emulated or IsWow64Executable then
-    Result := wa64bit
-  else
-    Result := wa32bit;
-end;
-
-function NTKernelVersion: single;
-begin
-  Result := Win32MajorVersion + Win32MinorVersion / 10;
-end;
-
-function IdleTime: DWord;
-var
-  LastInput: TLastInputInfo;
-begin
-  LastInput.cbSize := SizeOf(TLastInputInfo);
-  GetLastInputInfo(LastInput);
-  Result := (GetTickCount - LastInput.dwTime) DIV 1000;
-end;
-
-function GetAccentColor(brightencolor: boolean ): TColor;
-var
-  R: TRegistry;
-  ARGB: Cardinal;
-begin
-  Result := $D77800;  //  Default value on error
-  R := TRegistry.Create;
-  try
-    R.RootKey := HKEY_CURRENT_USER;
-    if R.OpenKeyReadOnly('Software\Microsoft\Windows\DWM\') and R.ValueExists('AccentColor') then begin
-      ARGB := R.ReadCardinal('AccentColor');
-      Result := ARGB mod $FF000000; //  ARGB to RGB
-    end;
-  finally
-    R.Free;
-  end;
-
-  if brightencolor then
-    Result := ChangeColorSat(Result, 50);
-end;
-
-function IsAppsUseDarkTheme: Boolean;
-var
-  R: TRegistry;
-begin
-  Result := False;
-  R := TRegistry.Create;
-  try
-    R.RootKey := HKEY_CURRENT_USER;
-    if R.OpenKeyReadOnly('Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\') and R.ValueExists('AppsUseLightTheme') then begin
-      Result := R.ReadInteger('AppsUseLightTheme') <> 1;
-    end;
-  finally
-    R.Free;
-  end;
-end;
-
-function IsSystemUseDarkTheme: Boolean;
-var
-  R: TRegistry;
-begin
-  Result := False;
-  R := TRegistry.Create;
-  try
-    R.RootKey := HKEY_CURRENT_USER;
-    if R.OpenKeyReadOnly('Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\') and R.ValueExists('SystemUsesLightTheme') then begin
-      Result := R.ReadInteger('SystemUsesLightTheme') <> 1;
-    end;
-  finally
-    R.Free;
-  end;
-end;
-function IsTransparencyEnabled: Boolean;
-var
-  R: TRegistry;
-begin
-  Result := False;
-  R := TRegistry.Create;
-  try
-    R.RootKey := HKEY_CURRENT_USER;
-    if R.OpenKeyReadOnly('Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\') and R.ValueExists('EnableTransparency') then begin
-      Result := R.ReadInteger('EnableTransparency') <> 1;
-    end;
-  finally
-    R.Free;
-  end;
-end;
-
-function GetUserNameString: string;
-var
-  nSize: DWord;
-begin
- nSize := 1024;
- SetLength(Result, nSize);
- if GetUserName(PChar(Result), nSize) then
-   SetLength(Result, nSize-1)
- else
-   RaiseLastOSError;
-end;
-
-function GetCompleteUserName: string;
-const
-  nameType = NameDisplay;
-var
-  dwSize: DWORD;
-  userName: PWideChar;
-begin
-  dwSize := 0;
-  if Succeeded(GetUserNameEx(nameType, nil, dwSize)) then
-  begin
-    GetMem(userName, dwSize * SizeOf(WideChar));
-    try
-      if Succeeded(GetUserNameEx(nameType, userName, dwSize)) then
-      begin
-        // use the name
-        Result := PChar(userName);
-      end
-      else
-        RaiseLastOSError;
-    finally
-      FreeMem(userName);
-    end;
-  end
-  else
-    RaiseLastOSError;
+  ShellRun('explorer.exe', true, Format('/select,"%S"', [ItemPath]));
 end;
 
 function IsAdministrator: boolean;
+const
+  SECURITY_NT_AUTHORITY: TSIDIdentifierAuthority =
+    (Value: (0, 0, 0, 0, 0, 5));
+  SECURITY_BUILTIN_DOMAIN_RID = $00000020;
+  DOMAIN_ALIAS_RID_ADMINS = $00000220;
 var
-  str: string;
-  Registry: TWinRegistry;
+  AdminGroup: PSID;
+  Res: longbool;
 begin
-  str :=  'HKEY_LOCAL_MACHINE\Software\' + inttostr(randomrange(1000,9999));
-
-  Registry := TWinRegistry.Create;
-  try
-    Registry.ErrorKind := TRegistryErrorKind.Disabled;
-    if Registry.CreateKey(str) then
-      Result := true
-    else
-      Result := false;
-  finally
-    Registry.Free;
-  end;
-
-  TQuickReg.DeleteKey(str);
+  // IsUserAdmin from Shell32 also works
+  if AllocateAndInitializeSid(
+    SECURITY_NT_AUTHORITY, 2,
+    SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS,
+    0, 0, 0, 0, 0, 0, AdminGroup) then
+  begin
+    try
+      CheckTokenMembership(0, AdminGroup, Res);
+      Result := Res;
+    finally
+      FreeSid(AdminGroup);
+    end;
+  end
+  else
+    Result := False;
 end;
 
 function GetParameter(Index: integer): string;
@@ -1107,6 +631,58 @@ begin
     Result := AnsiLowerCase( Result );
 end;
 
+function GetParameters: string;
+var
+  I: Integer;
+  Parameter: string;
+  ACount: integer;
+begin
+  ACount := ParamCount;
+  for I := 1 to ParamCount do
+    begin
+      Parameter := GetParameter(I);
+
+      if Parameter.IndexOf(' ') <> -1 then
+        Parameter := Format('"%S"', [Parameter]);
+
+      Result := Result + Parameter;
+      if I <> ACount then
+        Result := Result + ' ';
+    end;
+end;
+
+procedure GetIconStrIcon(IconString: string; var PngImage: TPngImage);
+var
+  ic: TIcon;
+  FileName: string;
+  IconIndex: word;
+  Sep: integer;
+begin
+  if TFile.Exists(IconString) then
+    begin
+      IconIndex := 0;
+      FileName := IconString;
+    end
+  else
+    begin
+      Sep := IconString.LastIndexOf(',');
+      FileName := Copy(IconString, 1, Sep);
+      IconIndex := Copy(IconString, Sep+2, Length(IconString)).ToInteger;
+    end;
+
+  // Get TIcon
+  ic := TIcon.Create;
+  try
+    ic.Handle := ExtractAssociatedIcon(HInstance, PChar(FileName), IconIndex);
+    ic.Transparent := true;
+
+    // Convert to PNG
+    ConvertToPNG(ic, PngImage);
+  finally
+    ic.Free;
+  end;
+end;
+
 procedure GetFileIcon(FileName: string; var PngImage: TPngImage; IconIndex: word);
 var
   ic: TIcon;
@@ -1118,8 +694,6 @@ begin
     ic.Transparent := true;
 
     // Convert to PNG
-    PngImage := TPngImage.Create;
-
     ConvertToPNG(ic, PngImage);
   finally
     ic.Free;

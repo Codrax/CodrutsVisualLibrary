@@ -178,6 +178,8 @@ type
       procedure ApplyAccentColor;
 
     published
+      procedure SelfRedraw;
+
       property OnMouseEnter;
       property OnMouseLeave;
       property OnMouseDown;
@@ -374,7 +376,7 @@ begin
   FState := cbUnchecked;
   FAllowGrayed := false;
 
-  FAccent := acAccentAdjust;
+  FAccent := CAccentColor.AccentAdjust;
   ApplyAccentColor;
 
   Width := 125;
@@ -822,11 +824,16 @@ begin
   FIgnorePaintText := false;
 end;
 
+procedure CCheckBox.SelfRedraw;
+begin
+  Paint;
+end;
+
 procedure CCheckBox.SetAccentColor(const Value: CAccentColor);
 begin
   FAccent := Value;
 
-  if Value <> acNone then
+  if Value <> CAccentColor.None then
     ApplyAccentColor;
 
   PaintCheck;
@@ -916,7 +923,7 @@ procedure CCheckBox.ApplyAccentColor;
 var
   AccColor: TColor;
 begin
-  if FAccent = acNone then
+  if FAccent = CAccentColor.None then
     Exit;
 
   AccColor := GetAccentColor(FAccent);

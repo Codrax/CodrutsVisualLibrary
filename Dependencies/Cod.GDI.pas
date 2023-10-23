@@ -40,6 +40,7 @@ interface
     procedure TintPicture(Canvas: TCanvas; Rectangle: TRect; Color: TColor = clBlack; Opacity: byte = 75; Buffered: boolean = true);
 
     // Drawing functions
+    procedure DrawText(Canvas: TCanvas; Text: string; Rectangle: TRect; Font: TGPFont; Format: TGPStringFormat; Brush: TGDIBrush; Angle: integer = 0; Buffered: boolean = false);
     procedure DrawRectangle(Canvas: TCanvas; Rectangle: TRect; Brush: TGDIBrush; Pen: TGDIPen; Buffered: boolean = true);
     procedure DrawRoundRect(Canvas: TCanvas; RoundRect: TRoundRect; Brush: TGDIBrush; Pen: TGDIPen; Buffered: boolean = true);
     procedure DrawCircle(Canvas: TCanvas; Rectangle: TRect; Brush: TGDIBrush; Pen: TGDIPen; Buffered: boolean = true);
@@ -147,6 +148,60 @@ begin
   finally
     G.Free;
     B.Free;
+  end;
+end;
+
+procedure DrawText(Canvas: TCanvas; Text: string; Rectangle: TRect; Font: TGPFont; Format: TGPStringFormat; Brush: TGDIBrush; Angle: integer; Buffered: boolean);
+var
+  G: TGPGRaphics;
+begin
+  // Bitmap Buffered Draw
+  if Buffered then
+    begin
+      var BMP: TBitMap;
+      var R: TRect;
+
+      BMP := TBitMap.Create;
+      PrepareBMP(BMP, Rectangle.Width, Rectangle.Height);
+      try
+        R := Rectangle;
+        R.Offset(-Rectangle.Left, -Rectangle.Top);
+
+        DrawText( BMP.Canvas, Text, R, Font, Format, Brush, Angle, false);
+
+        Canvas.Draw(Rectangle.Left, Rectangle.Top, BMP);
+      finally
+        BMP.Free;
+      end;
+      Exit;
+    end;
+
+  // Client Draw
+  G := TGPGRaphics.Create(Canvas.Handle);
+  try
+    G.SetSmoothingMode(SmoothingModeHighQuality);
+
+    G.TranslateTransform(Rectangle.Left + Rectangle.Width div 2, Rectangle.Top + Rectangle.Height div 2);
+    Rectangle.Offset(-Rectangle.Left - Rectangle.Width div 2, -Rectangle.Top - Rectangle.Height div 2);
+
+     if Angle <> 0 then
+      // Rotate
+      G.RotateTransform(Angle);
+
+    if Brush <> nil then
+      begin
+        const R: TGPRectF = MakeRect(Single(Rectangle.Left), Rectangle.Top, Rectangle.Width, Rectangle.Height);
+        G.DrawString(PChar(Text), -1, Font, R, Format, Brush );
+      end;
+
+    // Reset Rotation
+    G.ResetTransform;
+
+    // Canvas Notify
+    if Assigned(Canvas.OnChange) then
+      Canvas.OnChange(Canvas);
+  finally
+    G.Free;
   end;
 end;
 
@@ -375,7 +430,7 @@ procedure DrawLine(Canvas: TCanvas; Line: TLine; Pen: TGDIPen; Buffered: boolean
 var
   G: TGPGRaphics;
 begin
-    // Bitmap Buffered Draw
+  // Bitmap Buffered Draw
   if Buffered then
     begin
       var BMP: TBitMap;
@@ -424,7 +479,7 @@ var
   P: TGPImage;
   BitMap: TBitMap;
 begin
-    // Bitmap Buffered Draw
+  // Bitmap Buffered Draw
   if Buffered then
     begin
       var BMP: TBitMap;

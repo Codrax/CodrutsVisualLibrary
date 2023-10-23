@@ -56,13 +56,14 @@ contains
   Cod.Visual.ColorBox in 'src\Cod.Visual.ColorBox.pas',
   Cod.Visual.Panels in 'src\Cod.Visual.Panels.pas',
   Cod.Visual.GlassBlur in 'src\Cod.Visual.GlassBlur.pas',
-  Cod.ColorDialog in 'src\Cod.ColorDialog.pas',
-  Cod.IconPicker in 'src\Cod.IconPicker.pas',
-  Cod.HotKey in 'src\Cod.HotKey.pas',
-  Cod.PrintDlg in 'src\Cod.PrintDlg.pas',
   Cod.Visual.CPSharedLib in 'src\Cod.Visual.CPSharedLib.pas',
+  Cod.Components.Register in 'src\Cod.Components.Register.pas',
+  Cod.Visual.Scrollbar in 'src\Cod.Visual.Scrollbar.pas',
+  Cod.Dialogs.ColorDialog in 'src\Cod.Dialogs.ColorDialog.pas',
+  Cod.Dialogs.IconPicker in 'src\Cod.Dialogs.IconPicker.pas',
+  Cod.Dialogs.PrintDlg in 'src\Cod.Dialogs.PrintDlg.pas',
   Cod.Components in 'src\Cod.Components.pas',
-  Cod.Visual.Register in 'src\Cod.Visual.Register.pas';
+  Cod.Component.HotKey in 'src\Cod.Component.HotKey.pas';
 
 end.
 

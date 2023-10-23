@@ -186,7 +186,7 @@ procedure CSlider.ApplyAccentColor;
 var
   AccColor: TColor;
 begin
-  if FAccent = acNone then
+  if FAccent = CAccentColor.None then
     Exit;
 
   AccColor := GetAccentColor(FAccent);
@@ -273,7 +273,7 @@ begin
 
   FPreset := CSliderPreset.cslNone;
 
-  FAccent := acAccentAdjust;
+  FAccent := CAccentColor.AccentAdjust;
   ApplyAccentColor;
 
   Width := 250;
@@ -452,7 +452,7 @@ procedure CSlider.SetAccentColor(const Value: CAccentColor);
 begin
   FAccent := Value;
 
-  if Value <> acNone then
+  if Value <> CAccentColor.None then
     ApplyAccentColor;
 
   Paint;

@@ -7,7 +7,8 @@ interface
     Cod.Files, Windows, Dialogs, Cod.Visual.Button, UITypes, Types, Classes, Variants, Graphics,
     Forms, StdCtrls, Cod.Visual.StandardIcons, Themes, Styles,
     Controls, Cod.Components, Cod.ColorUtils, SysUtils, Vcl.ExtCtrls,
-    Vcl.TitleBarCtrls, Cod.SysUtils, Math, Cod.Math, Vcl.ComCtrls;
+    Vcl.TitleBarCtrls, Cod.SysUtils, Math, Cod.Math, Vcl.ComCtrls,
+    Cod.Windows;
 
   type
     CMessageType = (ctInformation, ctError, ctCritical, ctQuestion, ctSucess, ctWarning, ctStar);
@@ -75,7 +76,7 @@ interface
 
         // Execute
         procedure ExecuteInherited; virtual;
-        function ModalExecution(FreeForm: boolean = true): integer;
+        function ModalExecution(FreeMem: boolean = true): integer;
 
         procedure FreeForm;
 
@@ -699,7 +700,7 @@ begin
     // Set Edit Width
     TextBox.Width := Form.ClientWidth - Prompt.Left * 2; // This is set after in case the Buttons span a langer distance that the Form
 
-    if ModalExecution = mrOk then
+    if ModalExecution(false) = mrOk then
       begin
         DialogResult := cidrOk;
         Result := TextBox.Text
@@ -709,6 +710,9 @@ begin
         DialogResult := cidrCancel;
         Result := Value;
       end;
+
+    // Free
+    FreeForm;
   end;
 end;
 
@@ -1082,15 +1086,15 @@ begin
   end;
 end;
 
-function CDialogBox.ModalExecution(FreeForm: boolean): integer;
+function CDialogBox.ModalExecution(FreeMem: boolean): integer;
 begin
   // Execute Modal & Return value
   try
     Result := Form.ShowModal;
   finally
     // Free Memory
-    if FreeForm then
-      Form.Free;
+    if FreeMem then
+      FreeForm;
   end;
 end;
 
@@ -1113,7 +1117,7 @@ procedure CDialogBox.SetButtonColor(AColor: TColor);
 begin
   with FButtonDesign do
     begin
-      UseAccentColor := acNone;
+      UseAccentColor := CAccentColor.None;
 
       Colors.Leave := AColor;
       Colors.Enter := ChangeColorSat( AColor, 60 );
@@ -1261,6 +1265,7 @@ begin
 
     Result := SelectedIndex;
 
+    // Free Memory
     FreeForm;
   end;
 end;
@@ -1401,6 +1406,7 @@ begin
 
     Result := SelectedIndex;
 
+    // Free Memory
     FreeForm;
   end;
 end;
@@ -1473,7 +1479,7 @@ begin
     // Set Edit Width
     Text.Width := Form.ClientWidth - Prompt.Left * 2; // This is set after in case the Buttons span a langer distance that the Form
 
-    if ModalExecution = mrOk then
+    if ModalExecution(false) = mrOk then
       begin
         DialogResult := cidrOk;
         Result := true;
@@ -1484,6 +1490,9 @@ begin
         DialogResult := cidrCancel;
         Result := false;
       end;
+
+    // Free Memory
+    FreeForm;
   end;
 end;
 

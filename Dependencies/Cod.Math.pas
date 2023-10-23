@@ -17,10 +17,8 @@ unit Cod.Math;
 interface
   uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, Math,
-  Cod.SysUtils, System.Generics.Collections, Cod.VarHelpers, Cod.StringUtils;
-
-  type
-    TNumberRelation = (Smaller, Bigger, Equal);
+  Cod.SysUtils, System.Generics.Collections, Cod.VarHelpers, Cod.StringUtils,
+  Cod.Types;
 
   // This function gets a string and automaticly calculates any
   // indics such as =time =eq = cell
@@ -51,8 +49,8 @@ interface
   function EqualApprox(number1, number2: real; span: real = 1): boolean; overload;
   function PercOf(number: int64; percentage: integer): integer;
   function PercOfR(number: Real; percentage: int64): real;
-  function GetNumberRelation(Primary, Secondary: int64): TNumberRelation; overload;
-  function GetNumberRelation(Primary, Secondary: real): TNumberRelation; overload;
+  function GetNumberRelation(Primary, Secondary: int64): TRelation; overload;
+  function GetNumberRelation(Primary, Secondary: real): TRelation; overload;
   {$IFDEF WIN32}
   procedure ConstraintASM(var Number: integer; Min: integer; Max: integer);
   {$ENDIF}
@@ -131,20 +129,20 @@ begin
   Result := percentage / 100 * number;
 end;
 
-function GetNumberRelation(Primary, Secondary: int64): TNumberRelation;
+function GetNumberRelation(Primary, Secondary: int64): TRelation;
 begin
   Result := GetNumberRelation( real(Primary), real(Secondary) );
 end;
 
-function GetNumberRelation(Primary, Secondary: real): TNumberRelation;
+function GetNumberRelation(Primary, Secondary: real): TRelation;
 begin
   if Primary = Secondary then
-    Result := TNumberRelation.Equal
+    Result := TRelation.Equal
       else
         if Primary > Secondary then
-          Result := TNumberRelation.Bigger
+          Result := TRelation.Bigger
             else
-              Result := TNumberRelation.Smaller;
+              Result := TRelation.Smaller;
 end;
 
 {$IFDEF WIN32}

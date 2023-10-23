@@ -18,7 +18,7 @@ unit Cod.Registry;
 interface
   uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Registry, Vcl.Dialogs;
+  Registry, Vcl.Dialogs, Cod.ArrayHelpers, Cod.MesssageConst;
 
   type
     TRegistryMode = (Unloaded, Windows32, Windows64, Automatic);
@@ -163,6 +163,11 @@ interface
       property ManualHive: HKEY read FDefaultHive write SetManualHive;
       (* Detect the hive automatically from the KeyLocation, overriden by DefaultHive *)
       property DefaultHive: HKEY read FDefaultHive write FDefaultHive;
+
+      // Utilities
+      class function HiveToString(Hive: HKEY): string;
+      class function StringToHive(AString: string; Default: HKEY = HKEY_CURRENT_USER): HKEY;
+      class function StringToHiveEx(AString: string; var Hive: HKEY): boolean;
     end;
 
 const
@@ -407,6 +412,31 @@ begin
   end;
 end;
 
+
+class function TWinRegistry.HiveToString(Hive: HKEY): string;
+begin
+  // Constant expression violates subrange bounds, IF STATEMENT instead of CASE to fix
+  if Hive = HKEY_CLASSES_ROOT then
+    Result := HIVE_CLASSES_ROOT[0]
+  else
+  if Hive = HKEY_CURRENT_USER then
+    Result := HIVE_CURRENT_USER[0]
+  else
+  if Hive = HKEY_LOCAL_MACHINE then
+    Result := HIVE_LOCAL_MACHINE[0]
+  else
+  if Hive = HKEY_USERS then
+    Result := HIVE_USERS[0]
+  else
+  if Hive = HKEY_PERFORMANCE_DATA then
+    Result := HIVE_PERFORMANCE_DATA[0]
+  else
+  if Hive = HKEY_DYN_DATA then
+    Result := HIVE_DYN_DATA[0]
+  else
+    Result := STRING_UNKNOWN;
+end;
+
 function TWinRegistry.GetValueAsStringEx(KeyLocation, ValueName: string): string;
 begin
   // Prepare bPath & Open
@@ -530,6 +560,59 @@ begin
   FRegistryMode := AMode;
 end;
 
+class function TWinRegistry.StringToHive(AString: string; Default: HKEY): HKEY;
+begin
+  if not StringToHiveEx(AString, Result) then
+    Result := Default;
+end;
+
+class function TWinRegistry.StringToHiveEx(AString: string; var Hive: HKEY): boolean;
+begin
+  if HIVE_CLASSES_ROOT.Find(AString) <> -1 then
+    begin
+      Hive := HKEY_CLASSES_ROOT;
+      Exit(true);
+    end;
+
+  if HIVE_CURRENT_USER.Find(AString) <> -1 then
+    begin
+      Hive := HKEY_CURRENT_USER;
+      Exit(true);
+    end;
+
+  if HIVE_LOCAL_MACHINE.Find(AString) <> -1 then
+    begin
+      Hive := HKEY_LOCAL_MACHINE;
+      Exit(true);
+    end;
+
+  if HIVE_USERS.Find(AString) <> -1 then
+    begin
+      Hive := HKEY_USERS;
+      Exit(true);
+    end;
+
+  if HIVE_CURRENT_CONFIG.Find(AString) <> -1 then
+    begin
+      Hive := HKEY_CURRENT_CONFIG;
+      Exit(true);
+    end;
+
+  if HIVE_PERFORMANCE_DATA.Find(AString) <> -1 then
+    begin
+      Hive := HKEY_PERFORMANCE_DATA;
+      Exit(true);
+    end;
+
+  if HIVE_DYN_DATA.Find(AString) <> -1 then
+    begin
+      Hive := HKEY_DYN_DATA;
+      Exit(true);
+    end;
+
+  Exit(false);
+end;
+
 function TWinRegistry.MoveKey(KeyLocation, NewLocation: string; AlsoDelete: boolean = true): boolean;
 begin
   // Prepare bPath & Open
@@ -644,15 +727,6 @@ begin
 end;
 
 procedure TWinRegistry.ApplyPath(var Path: string);
-function HiveInArray(Hive: string; AArray: TArray<string>): boolean;
-  var
-    I: Integer;
-begin
-  Result := false;
-  for I := 0 to High(AArray) do
-    if AArray[I] = Hive then
-      Exit(true);
-end;
 label
   FoundItem, ExitSearch;
 var
@@ -672,56 +746,8 @@ begin
       StrRoot := AnsiUpperCase(Copy( Path, 1, Pos(KEY_SEPAR, Path) - 1 ));
 
       // Cases
-      if HiveInArray(StrRoot, HIVE_CLASSES_ROOT) then
-        begin
-          FHive := HKEY_CLASSES_ROOT;
-          goto FoundItem;
-        end;
-
-      if HiveInArray(StrRoot, HIVE_CURRENT_USER) then
-        begin
-          FHive := HKEY_CURRENT_USER;
-          goto FoundItem;
-        end;
-
-      if HiveInArray(StrRoot, HIVE_LOCAL_MACHINE) then
-        begin
-          FHive := HKEY_LOCAL_MACHINE;
-          goto FoundItem;
-        end;
-
-      if HiveInArray(StrRoot, HIVE_USERS) then
-        begin
-          FHive := HKEY_USERS;
-          goto FoundItem;
-        end;
-
-      if HiveInArray(StrRoot, HIVE_CURRENT_CONFIG) then
-        begin
-          FHive := HKEY_CURRENT_CONFIG;
-          goto FoundItem;
-        end;
-
-      if HiveInArray(StrRoot, HIVE_PERFORMANCE_DATA) then
-        begin
-          FHive := HKEY_PERFORMANCE_DATA;
-          goto FoundItem;
-        end;
-
-      if HiveInArray(StrRoot, HIVE_DYN_DATA) then
-        begin
-          FHive := HKEY_DYN_DATA;
-          goto FoundItem;
-        end;
-
-      // Exit Portal
-      goto ExitSearch;
-
-      // Found
-      FoundItem:
-        begin
-          RemovePathLevels( Path, 1 );
-        end;
+      if StringToHiveEx(StrRoot, FHive) then
+        RemovePathLevels( Path, 1 );
 
       // Exit
       ExitSearch:

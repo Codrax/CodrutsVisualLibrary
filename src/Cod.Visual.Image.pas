@@ -47,6 +47,11 @@ type
     FInflationValue: integer;
     FRotationAngle: integer;
     FRotationValue: integer;
+    FDrawCache: boolean;
+    FCached: TBitMap;
+    FCacheCreated: boolean;
+    FFlipX,
+    FFlipY: boolean;
 
     function GetCanvas: TCanvas;
     procedure PictureChanged(Sender: TObject);
@@ -60,18 +65,24 @@ type
     procedure SetTransparentGraphic(const Value: Boolean);
     procedure SetInflationValue(const Value: integer);
     procedure SetRotationAngle(const Value: integer);
+    procedure SetDrawCache(const Value: boolean);
+    function GetCachedCanvas: TCanvas;
+    procedure UpdateImageCache;
+    procedure SetFlipX(const Value: boolean);
+    procedure SetFlipY(const Value: boolean);
 
   protected
+    procedure Paint; override;
     function CanObserve(const ID: Integer): Boolean; override;
     function CanAutoSize(var NewWidth, NewHeight: Integer): Boolean; override;
     function DestRects: TArray<TRect>;
     function DoPaletteChange: Boolean;
-    procedure Paint; override;
     procedure Progress(Sender: TObject; Stage: TProgressStage;
       PercentDone: Byte; RedrawNow: Boolean; const R: TRect; const Msg: string); dynamic;
     procedure FindGraphicClass(Sender: TObject; const Context: TFindGraphicClassContext;
       var GraphicClass: TGraphicClass); dynamic;
     procedure CMStyleChanged(var Message: TMessage); message CM_STYLECHANGED;
+    procedure Resize; override;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -81,6 +92,7 @@ type
     procedure Inflate(up,right,down,lft: integer);
 
     property Canvas: TCanvas read GetCanvas;
+    property CachedCanvas: TCanvas read GetCachedCanvas;
 
   published
     property Align;
@@ -91,13 +103,16 @@ type
     property DragKind;
     property DragMode;
     property Enabled;
+    property FlipX: boolean read FFlipX write SetFlipX default false;
+    property FlipY: boolean read FFlipY write SetFlipY default false;
+    property DrawCache: boolean read FDrawCache write SetDrawCache default false;
     property TransparentGraphic: Boolean read FTransparentGraphic write SetTransparentGraphic default False;
-    property Smooth: boolean read FSmoothPicure write SetSmooth;
-    property Opacity: byte read FOpacity write SetOpacity;
-    property RotationAngle: integer read FRotationValue write SetRotationAngle;
-    property InflationValue: integer read FInflationValue write SetInflationValue;
+    property Smooth: boolean read FSmoothPicure write SetSmooth default true;
+    property Opacity: byte read FOpacity write SetOpacity default 255;
+    property RotationAngle: integer read FRotationValue write SetRotationAngle default 0;
+    property InflationValue: integer read FInflationValue write SetInflationValue default 0;
     property GifSettings: CImageGif read FGifSettings write SetGifSettings;
-    property DrawMode: TDrawMode read FDrawMode write SetDrawMode;
+    property DrawMode: TDrawMode read FDrawMode write SetDrawMode default TDrawMode.CenterFit;
     property IncrementalDisplay: Boolean read FIncrementalDisplay write FIncrementalDisplay default False;
     property ParentShowHint;
     property Picture: TPicture read FPicture write SetPicture;
@@ -194,6 +209,8 @@ begin
   FTransparent := true;
   FTransparentGraphic := false;
   FOpacity := 255;
+  FCacheCreated := false;
+  FDrawCache := false;
 
   FInflationValue := 0;
   FRotationAngle := 0;
@@ -206,7 +223,7 @@ begin
   FPicture.OnProgress := Progress;
   FPicture.OnFindGraphicClass := FindGraphicClass;
 
-  FDrawMode := dmCenterFit;
+  FDrawMode := TDrawMode.CenterFit;
 
   Width := 150;
   Height := 100;
@@ -218,10 +235,12 @@ var
 begin
   MRect := Rect(0, 0, Width, Height);
 
-  if Picture.Graphic <> nil then
+  if (Picture.Graphic <> nil) and not Picture.Graphic.Empty then
     try
       Result := GetDrawModeRects(MRect, Picture.Graphic, DrawMode);
-    except end
+    except
+      Result := [MRect];
+    end
   else
     Result := [MRect];
 end;
@@ -229,6 +248,8 @@ end;
 destructor CImage.Destroy;
 begin
   FPicture.Free;
+  if FCacheCreated then
+    FreeAndNil( FCached );
   inherited;
 end;
 
@@ -264,6 +285,14 @@ procedure CImage.FindGraphicClass(Sender: TObject;
   const Context: TFindGraphicClassContext; var GraphicClass: TGraphicClass);
 begin
   if Assigned(FOnFindGraphicClass) then FOnFindGraphicClass(Sender, Context, GraphicClass);
+end;
+
+function CImage.GetCachedCanvas: TCanvas;
+begin
+  if FCacheCreated then
+    Result := FCached.Canvas
+  else
+    Result := Canvas;
 end;
 
 function CImage.GetCanvas: TCanvas;
@@ -312,6 +341,51 @@ begin
 end;
 
 procedure CImage.Paint;
+  procedure BeginDrawPicture(ACanvas: TCanvas; AOpacity: byte);
+  var
+    Rects: TArray<TRect>;
+    I: integer;
+    P: integer;
+  begin
+    with ACanvas do
+      begin
+        Rects := DestRects;
+
+        // Inflate
+        for I := 0 to High(Rects) do
+          Rects[I].Inflate(FInflationValue, FInflationValue);
+
+        // Flip
+        if FFlipX then
+          for I := 0 to High(Rects) do
+            begin
+              P := Rects[I].Left;
+              Rects[I].Left := Rects[I].Right;
+              Rects[I].Right := P;
+            end;
+
+        if FFlipY then
+          for I := 0 to High(Rects) do
+            begin
+              P := Rects[I].Top;
+              Rects[I].Top := Rects[I].Bottom;
+              Rects[I].Bottom := P;
+            end;
+
+        // Draw Canvas
+        for I := 0 to High(Rects) do
+          if GifSettings.Enable then
+            StretchDraw(Rects[I], Picture.Graphic, AOpacity)
+          else
+            DrawHighQuality(Rects[I], Picture.Graphic, AOpacity, not FSmoothPicure);
+
+        // Draw Cache
+        if FDrawCache and FCacheCreated then
+          for I := 0 to High(Rects) do
+            FCached.Canvas.DrawHighQuality(Rects[I], Picture.Graphic, AOpacity, not FSmoothPicure);
+      end;
+  end;
+
   procedure DoBufferedPaint(Canvas: TCanvas);
   var
     MemDC: HDC;
@@ -322,7 +396,8 @@ procedure CImage.Paint;
     PaintBuffer := BeginBufferedPaint(Canvas.Handle, Rect, BPBF_TOPDOWNDIB, nil, MemDC);
     try
       Canvas.Handle := MemDC;
-      Canvas.StretchDraw(DestRects[0], Picture.Graphic);
+      //Canvas.StretchDraw(DestRects[0], Picture.Graphic);
+      BeginDrawPicture(Canvas, 255);
       BufferedPaintMakeOpaque(PaintBuffer, Rect);
     finally
       EndBufferedPaint(PaintBuffer, True);
@@ -331,47 +406,28 @@ procedure CImage.Paint;
 
 var
   Save: Boolean;
-  Rects: TArray<TRect>;
-  I: integer;
+  FControlCanvas: TCanvas;
 begin
+  FControlCanvas := inherited Canvas;
+
+  // Design
   if csDesigning in ComponentState then
-    with inherited Canvas do
+    with FControlCanvas do
     begin
       Pen.Style := psDash;
       Brush.Style := bsClear;
       Rectangle(0, 0, Width, Height);
     end;
+
+  // Draw
   Save := FDrawing;
   FDrawing := True;
   try
     if (csGlassPaint in ControlState) and (Picture.Graphic <> nil) and
        not Picture.Graphic.SupportsPartialTransparency then
-      DoBufferedPaint(inherited Canvas)
+      DoBufferedPaint(FControlCanvas)
     else
-      with inherited Canvas do
-        begin
-          Rects := DestRects;
-
-          // Inflate
-          for I := 0 to High(Rects) do
-            Rects[I].Inflate(FInflationValue, FInflationValue);
-
-          // Draw Canvas
-          if NOT FSmoothPicure then
-            begin
-              { No Image Smoothing }
-              for I := 0 to High(Rects) do
-                StretchDraw(Rects[I], Picture.Graphic, FOpacity);
-            end
-              else
-                begin
-                  { Image smoothing }
-                  if RotationAngle = 0 then
-
-                  for I := 0 to High(Rects) do
-                    DrawHighQuality(Rects[I], Picture.Graphic, FOpacity, false);
-                end;
-        end;
+      BeginDrawPicture(FControlCanvas, FOpacity);
   finally
     FDrawing := Save;
   end;
@@ -423,11 +479,42 @@ begin
   if Assigned(FOnProgress) then FOnProgress(Sender, Stage, PercentDone, RedrawNow, R, Msg);
 end;
 
+procedure CImage.Resize;
+begin
+  inherited;
+  if FDrawCache then
+    UpdateImageCache;
+end;
+
+procedure CImage.SetDrawCache(const Value: boolean);
+begin
+  if FDrawCache <> Value then
+    begin
+      FDrawCache := Value;
+
+      UpdateImageCache;
+    end;
+end;
+
 procedure CImage.SetDrawMode(const Value: TDrawMode);
 begin
   FDrawMode := Value;
 
   Paint;
+end;
+
+procedure CImage.SetFlipX(const Value: boolean);
+begin
+  FFlipX := Value;
+
+  Invalidate;
+end;
+
+procedure CImage.SetFlipY(const Value: boolean);
+begin
+  FFlipY := Value;
+
+  Invalidate;
 end;
 
 procedure CImage.SetGifSettings(const Value: CImageGif);
@@ -467,7 +554,7 @@ procedure CImage.SetSmooth(const Value: boolean);
 begin
   FSmoothPicure := Value;
 
-  //Paint;
+  Invalidate;
 end;
 
 procedure CImage.SetTransparent(Value: Boolean);
@@ -484,6 +571,27 @@ begin
   FTransparentGraphic := Value;
 
   PictureChanged(Self);
+end;
+
+procedure CImage.UpdateImageCache;
+begin
+  if FDrawCache then
+    begin
+      if not FCacheCreated then
+        begin
+          FCached := TBitMap.Create;
+          FCacheCreated := true;
+        end;
+
+      FCached.Width := Width;
+      FCached.Height := Height;
+    end
+      else
+        if FCacheCreated then
+          begin
+            FreeAndNil(FCached);
+            FCacheCreated := true;
+          end;
 end;
 
 { CImageGif }

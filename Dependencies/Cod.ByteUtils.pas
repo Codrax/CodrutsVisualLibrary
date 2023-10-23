@@ -110,7 +110,7 @@ begin
     end;
 end;
 begin
-  Result := dftText;
+  Result := TFileType.Text;
 
   // Get File
   HexArray := GetFileBytesString( FileName, MAX_READ_BUFF );
@@ -129,88 +129,88 @@ begin
 
   (* Picture Types *)
   if HasSignature(HEX, BMP_SIGN) then
-    Exit( dftBMP );
+    Exit( TFileType.BMP );
 
   if HasSignature(HEX, PNG_SIGN) then
-    Exit( dftPNG );
+    Exit( TFileType.PNG );
 
   if HasSignature(HEX, JPEG_SIGN) then
-    Exit( dftJPEG );
+    Exit( TFileType.JPEG );
 
   if HasSignature(HEX, GIF_SIGN) then
-    Exit( dftGIF );
+    Exit( TFileType.GIF );
 
   if HasSignature(StrRemove(HEX, 1, 8), HEIF_SIGN) then
-    Exit( dftHEIC );
+    Exit( TFileType.HEIC );
 
   if HasSignature(HEX, TIFF_SIGN) then
-    Exit( dftTIFF );
+    Exit( TFileType.TIFF );
 
   (* Video/Audio Media *)
   if HasSignature(HEX, MP3_SIGN) then
-    Exit( dftMP3 );
+    Exit( TFileType.MP3 );
 
   if HasSignature(StrRemove(HEX, 1, 8), MP4_SIGN) then
-    Exit( dftMP4 );
+    Exit( TFileType.MP4 );
 
   if HasSignature(HEX, FLAC_SIGN) then
-    Exit( dftFlac );
+    Exit( TFileType.Flac );
 
   if HasSignature(HEX, MDI_SIGN) then
-    Exit( dftMDI );
+    Exit( TFileType.MDI );
 
   if HasSignature(HEX, OGG_SIGN) then
-    Exit( dftOGG );
+    Exit( TFileType.OGG );
 
   if HasSignature(HEX, SND_SIGN) then
-    Exit( dftSND );
+    Exit( TFileType.SND );
 
   if HasSignature(HEX, M3U8_SIGN) then
-    Exit( dftM3U8 );
+    Exit( TFileType.M3U8 );
 
   (* Executable *)
   if HasSignature(HEX, EXE_SIGN) then
-    Exit( dftEXE );
+    Exit( TFileType.EXE );
 
   if HasSignature(HEX, MSI_SIGN) then
-    Exit( dftMSI );
+    Exit( TFileType.MSI );
 
   (* Zip *)
   if HasSignature(HEX, ZIP_SIGN) then
-    Exit( dftZip );
+    Exit( TFileType.Zip );
 
   if HasSignature(HEX, GZIP_SIGN) then
-    Exit( dftGZip );
+    Exit( TFileType.GZip );
 
   if HasSignature(HEX, ZIP7_SIGN) then
-    Exit( dft7Zip );
+    Exit( TFileType.Zip7 );
 
   if HasSignature(HEX, CABINET_SIGN) then
-    Exit( dftCabinet );
+    Exit( TFileType.Cabinet );
 
   if HasSignature(HEX, TAR_SIGN) then
-    Exit( dftTAR );
+    Exit( TFileType.TAR );
 
   if HasSignature(HEX, RAR_SIGN) then
-    Exit( dftRAR );
+    Exit( TFileType.RAR );
 
   if HasSignature(HEX, LZIP_SIGN) then
-    Exit( dftLZIP );
+    Exit( TFileType.LZIP );
 
   (* ISO *)
   if HasSignature(HEX, ISO_SIGN) then
-    Exit( dftISO );
+    Exit( TFileType.ISO );
 
   (* PDF *)
   if HasSignature(HEX, PDF_SIGN) then
-    Exit( dftPDF );
+    Exit( TFileType.PDF );
 
   (* Help File *)
   if HasSignature(HEX, HLP_SIGN) then
-    Exit( dftHLP );
+    Exit( TFileType.HLP );
 
   if HasSignature(HEX, CHM_SIGN) then
-    Exit( dftCHM );
+    Exit( TFileType.CHM );
 end;
 
 end.

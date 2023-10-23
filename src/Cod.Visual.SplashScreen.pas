@@ -151,7 +151,7 @@ begin
   MRect := Rect(0, 0, Width, Height);
 
   if Picture.Graphic <> nil then
-    Result := GetDrawModeRect(MRect, Picture.Graphic, TDrawMode.dmCenter)
+    Result := GetDrawModeRect(MRect, Picture.Graphic, TDrawMode.Center)
   else
     Result := MRect;
 end;

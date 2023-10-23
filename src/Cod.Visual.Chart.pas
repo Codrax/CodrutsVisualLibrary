@@ -180,7 +180,7 @@ begin
 
   FPenWid := 3;
 
-  FAccent := acAccentAdjust;
+  FAccent := CAccentColor.AccentAdjust;
   ApplyAccentColor;
 
   Width := 100;
@@ -285,7 +285,7 @@ begin
   finally
     // Finalise
    //Canvas.CopyRect(Rect(0,0,width,height), workon.Canvas, workon.canvas.ClipRect);
-   CopyRoundRect(workon.Canvas, RoundRect(Rect(3, 3, Width - 3, Height - 3), 1000, 1000), Canvas, Canvas.ClipRect);
+   CopyRoundRect(workon.Canvas, MakeRoundRect(Rect(3, 3, Width - 3, Height - 3), 1000, 1000), Canvas, Canvas.ClipRect);
 
    workon.Free;
   end;
@@ -297,7 +297,7 @@ begin
   FAccent := Value;
 
 
-  if Value <> acNone then
+  if Value <> CAccentColor.None then
     ApplyAccentColor;
 
   Paint;
@@ -383,7 +383,7 @@ procedure CChart.ApplyAccentColor;
 var
   AccColor: TColor;
 begin
-  if FAccent = acNone then
+  if FAccent = CAccentColor.None then
     Exit;
 
   AccColor := GetAccentColor(FAccent);

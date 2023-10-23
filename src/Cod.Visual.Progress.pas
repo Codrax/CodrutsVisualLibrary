@@ -190,7 +190,7 @@ procedure CProgress.ApplyAccentColor;
 var
   AccColor: TColor;
 begin
-  if FAccent = acNone then
+  if FAccent = CAccentColor.None then
     Exit;
 
   AccColor := GetAccentColor(FAccent);
@@ -292,7 +292,7 @@ FAnimationTimer := TTimer.Create(nil);
 
   FPreset := CProgressPreset.cprNone;
 
-  FAccent := acAccentAdjust;
+  FAccent := CAccentColor.AccentAdjust;
   ApplyAccentColor;
 
   Width := 200;
@@ -462,7 +462,7 @@ begin
    end;
 
    if FTrueTransparency then
-    CopyRoundRect(revision.Canvas, RoundRect(revision.Canvas.ClipRect,
+    CopyRoundRect(revision.Canvas, MakeRoundRect(revision.Canvas.ClipRect,
                   FProgOptions.FRoundInt, FProgOptions.FRoundInt),
                   Canvas, Canvas.ClipRect, 1)
    else
@@ -477,7 +477,7 @@ procedure CProgress.SetAccentColor(const Value: CAccentColor);
 begin
   FAccent := Value;
 
-  if Value <> acNone then
+  if Value <> CAccentColor.None then
     ApplyAccentColor;
 
   Paint;

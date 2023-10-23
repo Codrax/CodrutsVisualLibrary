@@ -47,6 +47,8 @@ type
       FSpacing: integer;
       FViewOnly: boolean;
       FStar: CStarRateStar;
+      FOnChange: TNotifyEvent;
+      FOnSelect: TNotifyEvent;
 
       mouseisdown: boolean;
 
@@ -97,6 +99,8 @@ type
       property Rating : integer read FRating write SetRating;
       property MaximumRating : integer read FMaxRating write SetMaxRating;
       property MinimumRating : integer read FMinRating write SetMinRating;
+      property OnChange: TNotifyEvent read FOnChange write FOnChange;
+      property OnSelect: TNotifyEvent read FOnSelect write FOnSelect;
 
       property &&&Author: string Read FAuthor;
       property &&&Site: string Read FSite;
@@ -165,12 +169,20 @@ begin
 end;
 
 procedure CStarRate.MouseMove(State: TShiftState; X, Y: integer);
+var
+  Rate: integer;
+  Changed: boolean;
 begin
   inherited;
 
   if (not FViewOnly) and mouseisdown then
     begin
-      Rating := round(X / Width * FMaxRating);
+      Rate := round(X / Width * FMaxRating);
+      Changed := Rate <> Rating;
+      Rating := Rate;
+
+      if Changed and Assigned(OnSelect) then
+        OnSelect(Self);
 
       Paint;
     end;
@@ -282,8 +294,13 @@ end;
 procedure CStarRate.SetRating(const Value: integer);
 begin
   if (Value <= FMaxRating)
-    and (Value >= FMinRating) then
-      FRating := Value;
+    and (Value >= FMinRating)
+      and (Value <> FRating) then
+        begin
+          FRating := Value;
+          if Assigned(OnChange) then
+            OnChange(Self);
+        end;
 
   Paint;
 end;

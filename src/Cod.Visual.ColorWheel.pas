@@ -355,7 +355,7 @@ begin
 
     //Draw Color Wheel
     if FTrueTransparent then
-        CopyRoundRect(wheel.Canvas, Cod.Types.RoundRect(Rect(0, 0, wheel.Width, wheel.Height), Width, Height), Canvas, canvas.ClipRect, 3)
+        CopyRoundRect(wheel.Canvas, MakeRoundRect(Rect(0, 0, wheel.Width, wheel.Height), Width, Height), Canvas, canvas.ClipRect, 3)
     else
       StretchDraw(Rect(0, 0, width, height), wheel, 255);
 

@@ -15,6 +15,7 @@ uses
   Cod.SysUtils,
   Consts,
   Vcl.Dialogs,
+  Cod.Windows,
   Forms,
   Winapi.Messages,
   Messaging,
@@ -127,6 +128,7 @@ type
   end;
 
   procedure GetWallpaper;
+  procedure GetWallpaperEx;
   procedure GetBlurredScreen(darkmode: boolean);
   function GetWallpaperName(ScreenIndex: integer; TranscodedDefault: boolean = false): string;
   function GetWallpaperSize: integer;
@@ -204,6 +206,38 @@ end;
 
 procedure GetWallpaper;
 var
+  DeskRect: TRect;
+begin
+  (* This method is objectively better than loading all files manually and colaging them! Screenshot the program Manager! *)
+  // Working
+  WorkingAP := true;
+
+  // Get Rects
+  DeskRect := Screen.DesktopRect;
+
+  // Create Images
+  WallpaperBlurred := TBitMap.Create(DeskRect.Width, DeskRect.Height);
+
+  // Screenshot
+  ScreenShotApplication(WallpaperBlurred, 'Program Manager');
+
+  // Normal
+  WallpaperBMP := TBitMap.Create(DeskRect.Width, DeskRect.Height);
+  WallpaperBMP.Assign( WallpaperBlurred );
+
+  // Blur
+  FastBlur(WallpaperBlurred, 8, 10, false); // 8 16
+
+  // Get Size
+  LastDetectedFileSize := GetWallpaperSize;
+  LastSyncTime := Now;
+
+  // Finish Work
+  WorkingAP := false;
+end;
+
+procedure GetWallpaperEx;
+var
   Filename: string;
 
   DestRect: TRect;
@@ -253,13 +287,13 @@ begin
 
   // Rects Draw Mode
   case WallpaperSetting of
-    wsFill: DrawMode := dmCenter3Fill;
-    wsFit: DrawMode := dmCenterFit;
-    wsStretch: DrawMode := dmStretch;
-    wsTile: DrawMode := dmTile;
-    wsCenter: DrawMode := dmCenter;
-    wsSpan: DrawMode := dmCenterFill;
-    else DrawMode := dmStretch;
+    wsFill: DrawMode := TDrawMode.Center3Fill;
+    wsFit: DrawMode := TDrawMode.CenterFit;
+    wsStretch: DrawMode := TDrawMode.Stretch;
+    wsTile: DrawMode := TDrawMode.Tile;
+    wsCenter: DrawMode := TDrawMode.Center;
+    wsSpan: DrawMode := TDrawMode.CenterFill;
+    else DrawMode := TDrawMode.Stretch;
   end;
 
   if WallpaperSetting = wsSpan then
@@ -276,7 +310,7 @@ begin
         Exit;
 
       Wallpaper.LoadFromFile(FileName);
-      DrawImageInRect(WallpaperBlurred.Canvas, WallpaperBlurred.Canvas.ClipRect, Wallpaper, dmCenterFill);
+      DrawImageInRect(WallpaperBlurred.Canvas, WallpaperBlurred.Canvas.ClipRect, Wallpaper, TDrawMode.CenterFill);
     end
   else
     // Complete Desktop Puzzle
@@ -397,13 +431,13 @@ procedure CreateBySignature(var Wallpaper: TGraphic; Sign: TFileType);
 begin
   case Sign of
     { Png }
-    dftPNG: Wallpaper := TPngImage.Create;
+    TFileType.PNG: Wallpaper := TPngImage.Create;
 
     { Jpeg }
-    dftJPEG: Wallpaper := TJpegImage.Create;
+    TFileType.JPEG: Wallpaper := TJpegImage.Create;
 
     { Gif }
-    dftGIF: Wallpaper := TGifImage.Create;
+    TFileType.GIF: Wallpaper := TGifImage.Create;
 
     { Heif? }
     //dftHEIF: ;
