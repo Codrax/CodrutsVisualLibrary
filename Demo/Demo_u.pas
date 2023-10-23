@@ -5,12 +5,12 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
-  Vcl.Imaging.GIFImg, Vcl.Imaging.pngimage, Cod.Dialogs, Cod.ColorDialog,
+  Vcl.Imaging.GIFImg, Vcl.Imaging.pngimage, Cod.Dialogs,
   Cod.Visual.GlassBlur, Cod.Visual.Panels, Cod.Visual.Image, Cod.Visual.Slider,
   Cod.Visual.SplashScreen, Cod.Visual.StarRate, Cod.Visual.CheckBox,
   Cod.Visual.ColorWheel, Cod.Visual.ColorBright, Cod.Visual.ColorBox,
   Cod.Visual.Progress, Cod.Visual.StandardIcons, Cod.Visual.Chart,
-  Cod.Visual.Button;
+  Cod.Visual.Button, Cod.Dialogs.ColorDialog;
 
 type
   TForm1 = class(TForm)
@@ -110,7 +110,6 @@ type
     Label15: TLabel;
     CButton19: CButton;
     CButton20: CButton;
-    CheckBox8: TCheckBox;
     CheckBox9: TCheckBox;
     CheckBox10: TCheckBox;
     CheckBox11: TCheckBox;
@@ -341,18 +340,24 @@ begin
 end;
 
 procedure TForm1.GoToPage(pg: integer);
+var
+  pan: TPanel;
 begin
   if pg > pages then pg := pages;
 
   page := pg;
 
   case pg of
-    1: pg1.BringToFront;
-    2: pg2.BringToFront;
-    3: pg3.BringToFront;
-    4: pg4.BringToFront;
-    5: pg5.BringToFront;
+    1: pan := pg1;
+    2: pan := pg2;
+    3: pan := pg3;
+    4: pan := pg4;
+    5: pan := pg5;
+    else Exit;
   end;
+
+  pan.BringToFront;
+  pan.Invalidate;
 
   if pg = 1 then pvpg.Enabled := false else pvpg.Enabled := true;
   if pg = pages then nxpg.Enabled := false else nxpg.Enabled := true;
