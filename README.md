@@ -5,23 +5,26 @@ This Delphi library was made in Embarcadero Delphi Community Edition 10.4.
 
 You may fork this branch as long as as the original source is propperly credited
 
-Components
-• CButton - a powerfull extremely customizable button
-• CStarRate - a rating item with stars, values can be set to any maximum and minimum value
-• CSplashScreen - a splash screen for programs, similar to the UWP app one
-• CProgress - a customizable progressbar with multiple states & animations
-• CSlider - a integer value slider
-• CImage - a image viewing component with image smoothing, gif playback and picture fit settings(Fill, Center, Fit, etc.)
-• CStandardIcon - a component displaying a collection of icons such as a checkmark, a star, a red x, etc.
-• CChart - a animated pie chart with many customizabilit options
-• CCheckbox - a animated checkbox with multiple styles, 3 states support and customizable colors / borders / radius / etc.
-• CColorWheel - a color wheel for picking a color
-• CColorBright - a brightness slider that works with the CColorWheel
-• CColorBox - a box displaying a static color
-• CPanel - a panel that can be synced to the accent color
-• CMinimisePanel - a panel that can be minimised to take up less space
-• CGlassBlur - a Aero effect that works with low-end machines and no external APIs required, supports real-time blur for drawing on top of other apps (like in the Popupmenu in the picture below)
+## Components
+- CButton - a powerfull extremely customizable button
+- CStarRate - a rating item with stars, values can be set to any maximum and minimum value
+- CSplashScreen - a splash screen for programs, similar to the UWP app one
+- CProgress - a customizable progressbar with multiple states & animations
+- CSlider - a integer value slider
+- CImage - a image viewing component with image smoothing, gif playback and picture fit settings(Fill, Center, Fit, etc.)
+- CStandardIcon - a component displaying a collection of icons such as a checkmark, a star, a red x, etc.
+- CChart - a animated pie chart with many customizabilit options
+- CCheckbox - a animated checkbox with multiple styles, 3 states support and customizable colors / borders / radius / etc.
+- CColorWheel - a color wheel for picking a color
+- CColorBright - a brightness slider that works with the CColorWheel
+- CColorBox - a box displaying a static color
+- CPanel - a panel that can be synced to the accent color
+- CMinimisePanel - a panel that can be minimised to take up less space
+- CGlassBlur - a Aero effect that works with low-end machines and no external APIs required, supports real-time blur for drawing on top of other apps (like in the Popupmenu in the picture below)
 
+## Dependencies
+- PNGComponents by TurboPack. From the [GetIT Package Manager](https://getitnow.embarcadero.com/PNGComponents-1.4-Sydney/)
+- Units in the dependencies folder
 
 ## Example programs:
 
