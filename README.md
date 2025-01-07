@@ -5,6 +5,9 @@ This Delphi library was made in Embarcadero Delphi Community Edition 10.4.
 
 You may fork this branch as long as as the original source is propperly credited
 
+### Disclaimer
+While these components are very powerfull, customizable, and are still in use by lot of projects, please be advised this library is a project I started many years ago and the code I've written is not the best. While I ocasionally update the library to fix bugs, make some patches and maybe add something new, this library is not in active development anymore. Currently, my primary visual-library project I have is the [Codrut-Fluent-Design-System](https://github.com/Codrax/Codrut-Fluent-Design-System). Which is another visual library with more up-to-date code and consistent design. The controls are a little bit less customizable as they follow a certain design guideline, the Windows 11 WinUI3 design specifically.
+
 ## Components
 - CButton - a powerfull extremely customizable button
 - CStarRate - a rating item with stars, values can be set to any maximum and minimum value
