@@ -150,8 +150,11 @@ var
 begin
   MRect := Rect(0, 0, Width, Height);
 
-  if Picture.Graphic <> nil then
-    Result := GetDrawModeRect(MRect, Picture.Graphic, TDrawMode.Center)
+  if Picture.Graphic <> nil then begin
+    const Rects = RectangleLayouts(TSize.Create(Picture.Graphic.Width, Picture.Graphic.Height),
+      MRect, DrawModeToImageLayout(TDrawMode.Center));
+    Result := Rects[0];
+  end
   else
     Result := MRect;
 end;

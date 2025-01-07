@@ -12,309 +12,278 @@
 {***********************************************************}
 
 {$WARN SYMBOL_PLATFORM OFF}
+{$SCOPEDENUMS ON}
 
 unit Cod.Files;
 
 interface
-  uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, IOUtils, ShellAPI, Vcl.Forms, Cod.Registry, ComObj, Math,
-  Registry, Cod.MesssageConst;
+uses
+  {$IFDEF MSWINDOWS}
+  Winapi.Windows, ShellAPI, Cod.Registry, Registry, ComObj,
+  {$ENDIF}
+  System.SysUtils, System.Variants, System.Classes, IOUtils, Math,
+  Cod.MesssageConst, Cod.ArrayHelpers;
 
-  type
-    // Disk Item
-    CDiskItemType = (dskFile, dskDirectory);
+{$IFDEF MSWINDOWS}
+const
+  IOCTL_STORAGE_QUERY_PROPERTY =  $002D1400;
 
-    TFileAttribute = (atrHidden, atrReadOnly, atrSysFile, atrCompressed, atrEncrypted);
-    TFileAttributes = set of TFileAttribute;
+type
+  {$SCOPEDENUMS OFF}
+  STORAGE_QUERY_TYPE = (PropertyStandardQuery = 0, PropertyExistsQuery, PropertyMaskQuery, PropertyQueryMaxDefined);
+  TStorageQueryType = STORAGE_QUERY_TYPE;
 
-    TFileDateType = (fdtCreate, fdtModify, fdfAccess);
+  STORAGE_PROPERTY_ID = (StorageDeviceProperty = 0, StorageAdapterProperty);
+  TStoragePropertyID = STORAGE_PROPERTY_ID;
 
-    TAppDataType = (adtLocal, adtRoaming, adtLocalLow);
+  STORAGE_PROPERTY_QUERY = packed record
+    PropertyId: STORAGE_PROPERTY_ID;
+    QueryType: STORAGE_QUERY_TYPE;
+    AdditionalParameters: array [0..9] of AnsiChar;
+  end;
+  TStoragePropertyQuery = STORAGE_PROPERTY_QUERY;
 
-    TUserShellLocation = (shlUser, shlAppData, shlAppDataLocal, shlDocuments,
-                      shlPictures, shlDesktop, shlMusic, shlVideos,
-                      shlNetwork, shlRecent, shlStartMenu, shlStartup,
-                      shlDownloads, shlPrograms);
+  STORAGE_BUS_TYPE = (BusTypeUnknown = 0, BusTypeScsi, BusTypeAtapi, BusTypeAta, BusType1394, BusTypeSsa, BusTypeFibre,
+    BusTypeUsb, BusTypeRAID, BusTypeiScsi, BusTypeSas, BusTypeSata, BusTypeMaxReserved = $7F);
+  {$SCOPEDENUMS ON}
+  TStorageBusType = STORAGE_BUS_TYPE;
 
-    TFileIOFlag = (fioConfirmMouse, fioSilent, fioNoConfirmation, fioAllowUndo,
-                   fioFilesOnly, fioSimpleProgress, fioNoConfirMakeDir, fioNoErrorUI,
-                   fioNoSecurityAttrib, fioNoRecursion, fioWantNukeWarning, fioNoUI);
-    TFileIOFlags = set of TFileIOFlag;
+  STORAGE_DEVICE_DESCRIPTOR = packed record
+    Version: DWORD;
+    Size: DWORD;
+    DeviceType: Byte;
+    DeviceTypeModifier: Byte;
+    RemovableMedia: Boolean;
+    CommandQueueing: Boolean;
+    VendorIdOffset: DWORD;
+    ProductIdOffset: DWORD;
+    ProductRevisionOffset: DWORD;
+    SerialNumberOffset: DWORD;
+    BusType: DWORD;
+    RawPropertiesLength: DWORD;
+    RawDeviceProperties: array [0..0] of AnsiChar;
+  end;
+  TStorageDeviceDescriptor = STORAGE_DEVICE_DESCRIPTOR;
+{$ENDIF}
 
-    // File Item
-    CFileItem = class
-    public
-      Filepath,
-      Fileonlyname,
-      Extention: string;
+type
+  // Disk Item
+  {$IFDEF MSWINDOWS}
+  TFileAttribute = (Hidden, ReadOnly, SysFile, Compressed, Encrypted);
+  TFileAttributes = set of TFileAttribute;
 
-      Size: int64;
+  TAppDataType = (Local, Roaming, LocalLow);
 
-      Attribute: Cardinal;
+  TUserShellLocation = (User, AppData, AppDataLocal, Documents, Pictures,
+    Desktop, Music, Videos, Network, Recent, StartMenu, Startup, Downloads,
+    Programs);
 
-      AccessDate,
-      WriteDate,
-      CreationDate: TDateTime;
+  TFileIOFlag = (ConfirmMouse, Silent, NoConfirmation, AllowUndo, FilesOnly,
+    SimpleProgress, NoConfirMakeDir, NoErrorUI, NoSecurityAttrib, NoRecursion,
+    WantNukeWarning, NoUI);
+  TFileIOFlags = set of TFileIOFlag;
+  {$ENDIF}
 
-      function Exists: boolean;
-      procedure Load(filename: string; restrictinfo: boolean = false);
+  TSourceSize = (Bytes, Kilobytes, Megabytes, Gigbytes, Terrabytes, Petabytes);
+  TFileDateTimeType = (Create, Modify, Access);
 
-    private
+// Path
+function GetSystemRoot: string;
+function GetPathDepth(Path: string): integer;
+function GetDisallowedFilenameCharacters: TCharArray;
+function ValidateFileName(const AString: string): string;
+function IsFileNameValid(const AString: string): boolean;
 
-    end;
+// Size
+function SizeInString(Size: int64; Scale: TSourceSize=TSourceSize.Bytes; MaxDecimals: cardinal=2): string;
+function TransposeSize(Size: int64; Source, Destination: TSourceSize; MaxDecimals: cardinal=2): string;
 
-    // Folder Item
-    CFolderItem = class
-    public
-      Path,
-      FolderOnlyName: string;
+function GetFolderSize(FolderPath: string): int64;
+function GetFolderSizeInStr(FolderPath: string): string;
 
-      Size: int64;
+function GetFileSize(FilePath: string): Int64;
+function GetFileSizeInStr(FilePath: string): string;
 
-      Attribute: Cardinal;
+// File Information
+{$IFDEF MSWINDOWS}
+function IsFileInUse(const FileName: string): Boolean;
+{$ENDIF}
+function GetFileDate(const FileName: string; AType: TFileDateTimeType): TDateTime;
+procedure SetFileDate(const FileName: string; AType: TFileDateTimeType; NewDate: TDateTime);
 
-      AccessDate,
-      WriteDate,
-      CreationDate: TDateTime;
+// Common locations
+{$IFDEF POSIX}
+function GetPathInAppData(AppName: string; Company: string; Create: boolean): string; overload;
+function GetPathInAppData(AppName: string; Create: boolean=true): string; overload;
+{$ENDIF}
+{$IFDEF MSWINDOWS}
+function GetPathInAppData(AppName: string; Company: string;
+  FolderType: TAppDataType; Create: boolean): string; overload;
+function GetPathInAppData(AppName: string; FolderType: TAppDataType; Create: boolean=true): string; overload;
+{$ENDIF}
 
-      function Exists: boolean;
-      procedure Load(foldername: string; restrictinfo: boolean = false);
-    end;
+(* NTFS *)
+{$IFDEF MSWINDOWS}
+function ReplaceWinPath(SrcString: string): string;
 
-    // Disk Item
-    CDiskItem = class
-      constructor Create;
-      destructor Destroy; override;
-    public
-      ItemType: CDiskItemType;
+function ReplaceEnviromentVariabiles(SrcString: string): string;
+function ReplaceShellLocations(SrcString: string): string;
+function GetUserShellLocation(ShellLocation: TUserShellLocation): string;
 
-      Path: string;
-      Size: int64;
+function GetSystemDrive: string;
 
-      FileItem: CFileItem;
-      FolderItem: CFolderItem;
+// Redeclared
+procedure RecycleFile(Path: string; Flags: TFileIOFlags = []);
+procedure RecycleFolder(Path: string; Flags: TFileIOFlags = []);
 
-      procedure TrimTrailingPathDelimiter;
-      function Exists: boolean;
-      procedure Load(pathtoitem: string; restrictinfo: boolean = false);
-    end;
+// Shell file management
+procedure DeleteFromDisk(Path: string; Flags: TFileIOFlags = [TFileIOFlag.AllowUndo]);
+procedure RenameDiskItem(Source: string; NewName: string; Flags: TFileIOFlags);
+procedure MoveDiskItem(Source: string; Destination: string; Flags: TFileIOFlags = [TFileIOFlag.AllowUndo]);
+procedure CopyDiskItem(Source: string; Destination: string; Flags: TFileIOFlags = [TFileIOFlag.AllowUndo, TFileIOFlag.NoConfirMakeDir]);
 
+// Volumes
+{$IFDEF MSWINDOWS}
+procedure GetDiskSpace(const Disk: string; var FreeBytes, TotalBytes, TotalFreeBytes: int64);
+function GetBusType(Drive: AnsiChar): TStorageBusType;
+function GetUsbDrives: TArray<AnsiChar>;
+{$ENDIF}
 
-  // System Utilities
-  function FileTimeToDateTime(Value: TFileTime): TDateTime;
-  function ShellPath(path: string): string;
+// Attributes for Files & Folders
+function GetAttributes(Path: string): TFileAttributes;
+procedure WriteAttributes(Path: string; Attribs: TFileAttributes; HandleCompression: boolean = true);
 
-  // File Folder IO
-  function FileIoFlags(Flags: TFileIOFlags): FILEOP_FLAGS;
+// Utils
+function FileTimeToDateTime(Value: TFileTime): TDateTime;
+function FileFlagsToIOFlags(Flags: TFileIOFlags): FILEOP_FLAGS;
 
-  (* Path *)
-  function ReplaceWinPath(SrcString: string): string;
-
-  function ReplaceEnviromentVariabiles(SrcString: string): string;
-  function ReplaceShellLocations(SrcString: string): string;
-
-  function GetSystemDrive: string;
-  function GetSystemRoot: string;
-
-  function GetPathDepth(Path: string): integer;
-
-  function GetUserShellLocation(ShellLocation: TUserShellLocation): string;
-  function GetPathInAppData(appname: string; codsoft: boolean = true;
-                            create: boolean = true;
-                            foldertype: TAppDataType = adtLocal): string;
-  function FileExtension(FileName: string; includeperiod: boolean = true): string;
-  function ValidateFileName(AString: string): string;
-
-  (* Redeclared *)
-  procedure RecycleFile(Path: string; Flags: TFileIOFlags = [fioAllowUndo]);
-  procedure RecycleFolder(Path: string; Flags: TFileIOFlags = [fioAllowUndo]);
-
-  (* Disk IO *)
-  procedure DeleteFromDisk(Path: string; Flags: TFileIOFlags = [fioAllowUndo]);
-  procedure RenameDiskItem(Source: string; NewName: string; Flags: TFileIOFlags);
-  procedure MoveDiskItem(Source: string; Destination: string; Flags: TFileIOFlags = [fioAllowUndo]);
-  procedure CopyDiskItem(Source: string; Destination: string; Flags: TFileIOFlags = [fioAllowUndo, fioNoConfirMakeDir]);
-
-  (* Volumes *)
-  procedure GetDiskSpace(const Disk: string; var FreeBytes, TotalBytes, TotalFreeBytes: int64);
-
-  (* File Information *)
-  function IsFileInUse(const FileName: string): Boolean;
-  function GetFileDate(const FileName: string; AType: TFileDateType): TDateTime;
-  procedure SetFileDate(const FileName: string; AType: TFileDateType; NewDate: TDateTime);
-
-  (* Size *)
-  function SizeInString(Size: int64; MaxDecimals: cardinal = 2): string;
-
-  function GetFolderSize(Path: string): int64;
-  function GetFolderSizeInStr(path: string): string;
-
-  function GetFileSize(FileName: WideString): Int64;
-  function GetFileSizeInStr(FileName: WideString): string;
-
-  (* Attributes *)
-  function GetAttributes(Path: string): TFileAttributes;
-  procedure WriteAttributes(Path: string; Attribs: TFileAttributes; HandleCompression: boolean = true);
-
-  (* NTFT Compression *)
-  function  CompressItem(const Path:string;Compress:Boolean; FolderRecursive: boolean = true):integer;
-  function  CompressFile(const FileName:string;Compress:Boolean):integer;
-  function  CompressFolder(const FolderName:string;Recursive, Compress:Boolean): integer;
-
-  // Utilities
-  function GetNTVersion: single;
-  function GetUserNameString: string;
-  function GetComputerNameString: string;
+// Compression
+function CompressFile(const FileName:string;Compress:Boolean):integer;
+function CompressFolder(const FolderName:string;Recursive, Compress:Boolean): integer;
+{$ENDIF}
 
 implementation
 
-function FileIoFlags(Flags: TFileIOFlags): FILEOP_FLAGS;
+{$IFDEF MSWINDOWS}
+uses
+  Cod.Windows;
+{$ENDIF}
+
+function GetSystemRoot: string;
 begin
-  // Converts set TFileIOFlags flags to Bit operation
+  {$IFDEF MSWINDOWS}
+  Result := ReplaceEnviromentVariabiles( '%SYSTEMROOT%' );
+  {$ELSE}
+  Result := '/';
+  {$ENDIF}
+end;
+
+function GetPathDepth(Path: string): integer;
+begin
+  Path := IncludeTrailingPathDelimiter(Path);
+  Result := Path.CountChar( TPath.DirectorySeparatorChar );
+end;
+
+function GetDisallowedFilenameCharacters: TCharArray;
+begin
+  Result := ['/', #0{$IFDEF MSWINDOWS}, '|', '<', '>', '\', '?', '"', ':', '*'{$ENDIF}];
+end;
+
+function ValidateFileName(const AString: string): string;
+var
+  x: integer;
+begin
+  Result := AString;
+  const IllegalCharSet = GetDisallowedFilenameCharacters;
+  for x := 1 to Length(Result) do
+    if IllegalCharSet.Find(Result[x]) <> -1 then
+      Result[x] := '_';
+end;
+
+function IsFileNameValid(const AString: string): boolean;
+var
+  x: integer;
+begin
+  const IllegalCharSet = GetDisallowedFilenameCharacters;
+  for x := 1 to Length(AString) do
+    if IllegalCharSet.Find(AString[x]) <> -1 then
+      Exit(false);
+
+  Result := true;
+end;
+
+function SizeInString(Size: int64; Scale: TSourceSize; MaxDecimals: cardinal): string;
+var
+  DestScale: TSourceSize;
+begin
+  // Process independently by source size
+  const Sizing = Abs( size );
+  case Sizing of
+    0..1023: DestScale := Scale;
+    1024..1048575: DestScale := TSourceSize(integer(Scale)+1);
+    1048576..1073741823: DestScale := TSourceSize(integer(Scale)+2);
+    else DestScale := TSourceSize(integer(Scale)+3);
+  end;
+  DestScale := TSourceSize(Min(cardinal(DestScale), cardinal(High(TSourceSize))));
+
+  // Divide
+  Result := TransposeSize(Size, Scale, DestScale, MaxDecimals);
+end;
+
+function TransposeSize(Size: int64; Source, Destination: TSourceSize; MaxDecimals: cardinal): string;
+begin
+  // Divide
+  Result := Format( '%0.'+MaxDecimals.ToString+'f', [Size / Power( 1024, integer(Destination)-integer(Source))] ) ;
+
+  // Measurement
+  case Destination of
+    TSourceSize.Bytes: Result := Concat( Result, ' ', 'B' );
+    TSourceSize.Kilobytes: Result := Concat( Result, ' ', 'KB' );
+    TSourceSize.Megabytes: Result := Concat( Result, ' ', 'MB' );
+    TSourceSize.Gigbytes: Result := Concat( Result, ' ', 'GB' );
+    TSourceSize.Terrabytes: Result := Concat( Result, ' ', 'TB' );
+    TSourceSize.Petabytes: Result := Concat( Result, ' ', 'PB' );
+  end;
+end;
+
+function GetFolderSize(FolderPath: string): int64;
+var
+  Items: TArray<string>;
+  I: integer;
+begin
   Result := 0;
-  if fioConfirmMouse in Flags then
-    Result := Result or FOF_CONFIRMMOUSE;
-  if fioSilent in Flags then
-    Result := Result or FOF_SILENT;
-  if fioNoConfirmation in Flags then
-    Result := Result or FOF_NOCONFIRMATION;
-  if fioAllowUndo in Flags then
-    Result := Result or FOF_ALLOWUNDO;
-  if fioFilesOnly in Flags  then
-    Result := Result or FOF_FILESONLY;
-  if fioSimpleProgress in Flags  then
-    Result := Result or FOF_SIMPLEPROGRESS;
-  if fioNoConfirMakeDir in Flags  then
-    Result := Result or FOF_NOCONFIRMMKDIR;
-  if fioNoErrorUI in Flags  then
-    Result := Result or FOF_NOERRORUI;
-  if fioNoSecurityAttrib in Flags  then
-    Result := Result or FOF_NOCOPYSECURITYATTRIBS;
-  if fioNoRecursion in Flags  then
-    Result := Result or FOF_NORECURSION;
-  if fioWantNukeWarning in Flags  then
-    Result := Result or FOF_WANTNUKEWARNING;
-  if fioNoUI in Flags  then
-    Result := Result or FOF_NO_UI;
+  // Path
+  FolderPath := FolderPath;
+
+  // Search
+  Items := TDirectory.GetFiles(FolderPath, '*', TSearchOption.soAllDirectories);
+  for I := 0 to High(Items) do
+    Inc(Result, TFile.GetSize(Items[I]));
 end;
 
-procedure RecycleFile(Path: string; Flags: TFileIOFlags);
+function GetFolderSizeInStr(FolderPath: string): string;
 begin
-  DeleteFromDisk( Path, Flags );
+  if DirectoryExists(FolderPath) then begin
+    Result := SizeInString(GetFolderSize(FolderPath));
+  end else
+    Result := NOT_NUMBER;
 end;
 
-procedure RecycleFolder(Path: string; Flags: TFileIOFlags);
+function GetFileSize(FilePath: string): Int64;
 begin
-  DeleteFromDisk( Path, Flags );
+  Result := TFile.GetSize(FilePath);
 end;
 
-procedure DeleteFromDisk(Path: string; Flags: TFileIOFlags);
-var
-  FileStructure: TSHFileOpStruct;
+function GetFileSizeInStr(FilePath: string): string;
 begin
-  with FileStructure do
-  begin
-    Wnd := Application.Handle;
-    wFunc := FO_DELETE;
-    pFrom := PChar( ReplaceWinPath(Path) + #0 );
-
-    // Flags
-    fFlags := FileIOFlags( Flags );
-  end;
-  try
-    SHFileOperation(FileStructure);
-  except
-    on EAccessViolation do
-      RaiseLastOSError;
-  end;
+  if FileExists(FilePath) then begin
+    Result := SizeInString(GetFileSize(FilePath));
+  end else
+    Result := NOT_NUMBER;
 end;
 
-procedure RenameDiskItem(Source: string; NewName: string; Flags: TFileIOFlags);
-var
-  FileStructure: TSHFileOpStruct;
-begin
-  with FileStructure do
-  begin
-    Wnd := Application.Handle;
-    wFunc := FO_RENAME;
-    pFrom := PChar( Source );
-    pTo := PChar( IncludeTrailingPathDelimiter( ExtractFileDir( Source ) ) + NewName );
-
-    // Flags
-    fFlags := FileIOFlags( Flags );
-  end;
-  try
-    SHFileOperation(FileStructure);
-  except
-    on EAccessViolation do
-      RaiseLastOSError;
-  end;
-end;
-
-procedure MoveDiskItem(Source: string; Destination: string; Flags: TFileIOFlags);
-var
-  FileStructure: TSHFileOpStruct;
-begin
-  with FileStructure do
-  begin
-    Wnd := Application.Handle;
-    wFunc := FO_MOVE;
-    pFrom := PChar( ExcludeTrailingPathDelimiter( ReplaceWinPath(Source) ) );
-    { ExcludeTrailingPathDelimiter is required, as if a / is present the function
-    will not work }
-    pTo := PChar( ReplaceWinPath(Destination) );
-
-    // Flags
-    fFlags := FileIOFlags( Flags );
-  end;
-  try
-    SHFileOperation(FileStructure);
-  except
-    on EAccessViolation do
-      RaiseLastOSError;
-  end;
-end;
-
-procedure CopyDiskItem(Source: string; Destination: string; Flags: TFileIOFlags);
-var
-  FileStructure: TSHFileOpStruct;
-begin
-  with FileStructure do
-  begin
-    Wnd := Application.Handle;
-    wFunc := FO_COPY;
-    pFrom := PChar( ExcludeTrailingPathDelimiter( ReplaceWinPath(Source) ) );
-    pTo := PChar( ReplaceWinPath(Destination) ); { The reason this PChar does not have
-      ExcludeTrailingPathDelimiter is because if the Destination has a final \ it means
-      to Copy the folder as it is and to become a subfolder of the Destionation, otherwise
-      It will override the folder if the \ is not present. }
-
-    // Flags
-    fFlags := FileIOFlags( Flags );
-  end;
-  try
-    SHFileOperation(FileStructure);
-  except
-    on EAccessViolation do
-      RaiseLastOSError;
-  end;
-end;
-
-procedure GetDiskSpace(const Disk: string; var FreeBytes, TotalBytes, TotalFreeBytes: int64);
-var
-  RootPath: PChar;
-  AFreeBytes, ATotalBytes, ATotalFreeBytes: ULARGE_INTEGER;
-begin
-  RootPath := PChar(Disk);
-  if not SHGetDiskFreeSpace(RootPath, AFreeBytes, ATotalBytes, ATotalFreeBytes) then
-    RaiseLastOSError;
-
-  FreeBytes := AFreeBytes.QuadPart;
-  TotalBytes := ATotalBytes.QuadPart;
-  TotalFreeBytes := ATotalFreeBytes.QuadPart;
-end;
-
+{$IFDEF MSWINDOWS}
+{$R-}
 function IsFileInUse(const FileName: string): Boolean;
 var
   HFileRes: HFILE;
@@ -326,39 +295,101 @@ begin
     if GetLastError = ERROR_SHARING_VIOLATION then
       Result := True;
   end
-  else
-  begin
-    CloseHandle(HFileRes);
-  end;
+    else
+      CloseHandle(HFileRes);
 end;
+{$R+}
+{$ENDIF}
 
-function GetFileDate(const FileName: string; AType: TFileDateType): TDateTime;
+function GetFileDate(const FileName: string; AType: TFileDateTimeType): TDateTime;
 begin
   if NOT fileexists(FileName) then
     Exit(0);
 
   // Get by Type
   case AType of
-    fdtCreate: Result := TFile.GetCreationTime(FileName);
-    fdtModify: Result := TFile.GetLastWriteTime(FileName);
-    fdfAccess: Result := TFile.GetLastAccessTime(FileName);
+    TFileDateTimeType.Create: Result := TFile.GetCreationTime(FileName);
+    TFileDateTimeType.Modify: Result := TFile.GetLastWriteTime(FileName);
+    TFileDateTimeType.Access: Result := TFile.GetLastAccessTime(FileName);
     else Result := 0;
   end;
 end;
 
-procedure SetFileDate(const FileName: string; AType: TFileDateType; NewDate: TDateTime);
+procedure SetFileDate(const FileName: string; AType: TFileDateTimeType; NewDate: TDateTime);
 begin
   if NOT fileexists(FileName) then
     Exit;
 
   // Get by Type
   case AType of
-    fdtCreate: TFile.SetCreationTime(FileName, NewDate);
-    fdtModify: TFile.SetLastWriteTime(FileName, NewDate);
-    fdfAccess: TFile.SetLastAccessTime(FileName, NewDate);
+    TFileDateTimeType.Create: TFile.SetCreationTime(FileName, NewDate);
+    TFileDateTimeType.Modify: TFile.SetLastWriteTime(FileName, NewDate);
+    TFileDateTimeType.Access: TFile.SetLastAccessTime(FileName, NewDate);
   end;
 end;
 
+{$IFDEF POSIX}
+function GetPathInAppData(AppName: string; Company: string; Create: boolean): string; overload;
+begin
+  Result := IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(TPath.GetHomePath)+'.config');
+
+  // Company
+  if Company <> '' then begin
+    Result := IncludeTrailingPathDelimiter(Result + Company);
+    if Create and (not TDirectory.Exists(Result)) then
+      TDirectory.CreateDirectory(Result);
+  end;
+
+  // Get Result & Create
+  Result := IncludeTrailingPathDelimiter(Result + AppName);
+  if Create and (not TDirectory.Exists(Result)) then
+    TDirectory.CreateDirectory(result);
+end;
+
+function GetPathInAppData(AppName: string; Create: boolean): string; overload;
+begin
+  Result := GetPathInAppData(AppName, ''{Default no company}, Create);
+end;
+{$ENDIF}
+
+{$IFDEF MSWINDOWS}
+function GetPathInAppData(AppName: string; Company: string;
+  FolderType: TAppDataType; Create: boolean): string;
+begin
+  if NTKernelVersion < 6 then
+    // Windows Xp and below
+    Result := GetSystemDrive + '\Documents and Settings\' + GetUserNameString + '\Application Data\'
+      else
+        // Windows Vista and above
+        begin
+          // Local, Roaming & Low
+          case foldertype of
+            TAppDataType.Local: Result := ReplaceWinPath('%LOCALAPPDATA%\');
+            TAppDataType.Roaming: Result := ReplaceWinPath('%APPDATA%\');
+            TAppDataType.LocalLow: Result := ReplaceWinPath('%userprofile%\AppData\LocalLow\');
+          end;
+        end;
+
+  // Company
+  if Company <> '' then begin
+    Result := Result + Company  + '\';
+    if Create and (not TDirectory.Exists(Result)) then
+      TDirectory.CreateDirectory(Result);
+  end;
+
+  // Get Result & Create
+  Result := Result + AppName + '\';
+  if Create and (not TDirectory.Exists(Result)) then
+    TDirectory.CreateDirectory(result);
+end;
+
+function GetPathInAppData(AppName: string; FolderType: TAppDataType; Create: boolean=true): string; overload;
+begin
+  Result := GetPathInAppData(AppName, DEFAULT_COMPANY, FolderType, Create);
+end;
+{$ENDIF}
+
+{$IFDEF MSWINDOWS}
 function ReplaceWinPath(SrcString: string): string;
 begin
   Result := SrcString;
@@ -476,21 +507,215 @@ begin
   end;
 end;
 
+function GetUserShellLocation(ShellLocation: TUserShellLocation): string;
+var
+  RegString, RegValue: string;
+  Registry: TWinRegistry;
+begin
+  case ShellLocation of
+    TUserShellLocation.User: Exit( ReplaceWinPath('%USERPROFILE%') );
+    TUserShellLocation.AppData: RegValue := 'AppData';
+    TUserShellLocation.AppDataLocal: RegValue := 'Local AppData';
+    TUserShellLocation.Documents: RegValue := 'Personal';
+    TUserShellLocation.Pictures: RegValue := 'My Pictures';
+    TUserShellLocation.Desktop: RegValue := 'Desktop';
+    TUserShellLocation.Music: RegValue := 'My Music';
+    TUserShellLocation.Videos: RegValue := 'My Video';
+    TUserShellLocation.Network: RegValue := 'NetHood';
+    TUserShellLocation.Recent: RegValue := 'Recent';
+    TUserShellLocation.StartMenu: RegValue := 'Start Menu';
+    TUserShellLocation.Programs: RegValue := 'Programs';
+    TUserShellLocation.Startup: RegValue := 'Startup';
+    TUserShellLocation.Downloads: RegValue := '{374DE290-123F-4565-9164-39C4925E467B}';
+  end;
+
+  Registry := TWinRegistry.Create;
+  try
+    RegString := Registry.GetStringValue('HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders', RegValue);
+  finally
+    Registry.Free;
+  end;
+
+  Result := ReplaceWinPath(RegString);
+end;
+
 function GetSystemDrive: string;
 begin
   Result := ReplaceEnviromentVariabiles( '%SYSTEMDRIVE%' );
 end;
 
-function GetSystemRoot: string;
+procedure RecycleFile(Path: string; Flags: TFileIOFlags);
 begin
-  Result := ReplaceEnviromentVariabiles( '%SYSTEMROOT%' );
+  Flags := Flags + [TFileIOFlag.AllowUndo];
+  DeleteFromDisk( Path, Flags );
 end;
 
-function GetPathDepth(Path: string): integer;
+procedure RecycleFolder(Path: string; Flags: TFileIOFlags);
 begin
-  Path := IncludeTrailingPathDelimiter(Path);
-  Result := Path.CountChar('\');
+  Flags := Flags + [TFileIOFlag.AllowUndo];
+  DeleteFromDisk( Path, Flags );
 end;
+
+procedure DeleteFromDisk(Path: string; Flags: TFileIOFlags);
+var
+  FileStructure: TSHFileOpStruct;
+begin
+  with FileStructure do
+  begin
+    Wnd := 0;
+    wFunc := FO_DELETE;
+    pFrom := PChar( ReplaceWinPath(Path) + #0 );
+
+    // Flags
+    fFlags := FileFlagsToIOFlags( Flags );
+  end;
+  try
+    SHFileOperation(FileStructure);
+  except
+    on EAccessViolation do
+      RaiseLastOSError;
+  end;
+end;
+
+procedure RenameDiskItem(Source: string; NewName: string; Flags: TFileIOFlags);
+var
+  FileStructure: TSHFileOpStruct;
+begin
+  with FileStructure do
+  begin
+    Wnd := 0;
+    wFunc := FO_RENAME;
+    pFrom := PChar( Source );
+    pTo := PChar( IncludeTrailingPathDelimiter( ExtractFileDir( Source ) ) + NewName );
+
+    // Flags
+    fFlags := FileFlagsToIOFlags( Flags );
+  end;
+  try
+    SHFileOperation(FileStructure);
+  except
+    on EAccessViolation do
+      RaiseLastOSError;
+  end;
+end;
+
+procedure MoveDiskItem(Source: string; Destination: string; Flags: TFileIOFlags);
+var
+  FileStructure: TSHFileOpStruct;
+begin
+  with FileStructure do
+  begin
+    Wnd := 0;
+    wFunc := FO_MOVE;
+    pFrom := PChar( ExcludeTrailingPathDelimiter( ReplaceWinPath(Source) ) );
+    { ExcludeTrailingPathDelimiter is required, as if a / is present the function
+    will not work }
+    pTo := PChar( ReplaceWinPath(Destination) );
+
+    // Flags
+    fFlags := FileFlagsToIOFlags( Flags );
+  end;
+  try
+    SHFileOperation(FileStructure);
+  except
+    on EAccessViolation do
+      RaiseLastOSError;
+  end;
+end;
+
+procedure CopyDiskItem(Source: string; Destination: string; Flags: TFileIOFlags);
+var
+  FileStructure: TSHFileOpStruct;
+begin
+  with FileStructure do
+  begin
+    Wnd := 0;
+    wFunc := FO_COPY;
+    pFrom := PChar( ExcludeTrailingPathDelimiter( ReplaceWinPath(Source) ) );
+    pTo := PChar( ReplaceWinPath(Destination) ); { The reason this PChar does not have
+      ExcludeTrailingPathDelimiter is because if the Destination has a final \ it means
+      to Copy the folder as it is and to become a subfolder of the Destionation, otherwise
+      It will override the folder if the \ is not present. }
+
+    // Flags
+    fFlags := FileFlagsToIOFlags( Flags );
+  end;
+  try
+    SHFileOperation(FileStructure);
+  except
+    on EAccessViolation do
+      RaiseLastOSError;
+  end;
+end;
+
+{$IFDEF MSWINDOWS}
+procedure GetDiskSpace(const Disk: string; var FreeBytes, TotalBytes, TotalFreeBytes: int64);
+var
+  RootPath: PChar;
+  AFreeBytes, ATotalBytes, ATotalFreeBytes: ULARGE_INTEGER;
+begin
+  RootPath := PChar(Disk);
+  if not SHGetDiskFreeSpace(RootPath, AFreeBytes, ATotalBytes, ATotalFreeBytes) then
+    RaiseLastOSError;
+
+  FreeBytes := AFreeBytes.QuadPart;
+  TotalBytes := ATotalBytes.QuadPart;
+  TotalFreeBytes := ATotalFreeBytes.QuadPart;
+end;
+
+function GetBusType(Drive: AnsiChar): TStorageBusType;
+var
+  H: THandle;
+  Query: TStoragePropertyQuery;
+  dwBytesReturned: DWORD;
+  Buffer: array [0..1023] of Byte;
+  sdd: TStorageDeviceDescriptor absolute Buffer;
+  OldMode: UINT;
+begin
+  Result := BusTypeUnknown;
+
+  OldMode := SetErrorMode(SEM_FAILCRITICALERRORS);
+  try
+    H := CreateFile(PChar(Format('\\.\%s:', [string(Drive)])), 0, FILE_SHARE_READ or FILE_SHARE_WRITE, nil,
+      OPEN_EXISTING, 0, 0);
+    if H <> INVALID_HANDLE_VALUE then
+    begin
+      try
+        dwBytesReturned := 0;
+        FillChar(Query, SizeOf(Query), 0);
+        FillChar(Buffer, SizeOf(Buffer), 0);
+        sdd.Size := SizeOf(Buffer);
+        Query.PropertyId := StorageDeviceProperty;
+        Query.QueryType := PropertyStandardQuery;
+        if DeviceIoControl(H, IOCTL_STORAGE_QUERY_PROPERTY, @Query, SizeOf(Query), @Buffer, SizeOf(Buffer), dwBytesReturned, nil) then
+          Result := STORAGE_BUS_TYPE(sdd.BusType);
+      finally
+        CloseHandle(H);
+      end;
+    end;
+  finally
+    SetErrorMode(OldMode);
+  end;
+end;
+
+
+function GetUsbDrives: TArray<AnsiChar>;
+var
+  DriveBits: set of 0..25;
+  I: Integer;
+  Drive: AnsiChar;
+begin
+  Cardinal(DriveBits) := GetLogicalDrives;
+
+  for I := 0 to 25 do
+    if I in DriveBits then
+    begin
+      Drive := AnsiChar(Chr(Ord('a') + I));
+      if GetBusType(Drive) = BusTypeUsb then
+        TArrayUtils<AnsiChar>.AddValue(Drive, Result);
+    end;
+end;
+{$ENDIF}
 
 function GetAttributes(Path: string): TFileAttributes;
 var
@@ -501,19 +726,19 @@ begin
   Result := [];
 
   if (Attrs and faHidden) <> 0 then
-    Result := Result + [atrHidden];
+    Result := Result + [TFileAttribute.Hidden];
 
   if (Attrs and faReadOnly) <> 0 then
-    Result := Result + [atrReadOnly];
+    Result := Result + [TFileAttribute.ReadOnly];
 
   if (Attrs and faSysFile) <> 0 then
-    Result := Result + [atrSysFile];
+    Result := Result + [TFileAttribute.SysFile];
 
   if (Attrs and faCompressed) <> 0 then
-    Result := Result + [atrCompressed];
+    Result := Result + [TFileAttribute.Compressed];
 
   if (Attrs and faEncrypted) <> 0 then
-    Result := Result + [atrEncrypted];
+    Result := Result + [TFileAttribute.Encrypted];
 end;
 
 procedure WriteAttributes(Path: string; Attribs: TFileAttributes;
@@ -531,17 +756,20 @@ begin
 
       WinAtr := 0;
       case DoWith of
-        atrReadOnly: WinAtr := faReadOnly;
-        atrHidden: WinAtr := faHidden;
-        atrSysFile: WinAtr := faSysFile;
-        atrCompressed: WinAtr := faCompressed;
-        atrEncrypted: WinAtr := faEncrypted;
+        TFileAttribute.ReadOnly: WinAtr := faReadOnly;
+        TFileAttribute.Hidden: WinAtr := faHidden;
+        TFileAttribute.SysFile: WinAtr := faSysFile;
+        TFileAttribute.Compressed: WinAtr := faCompressed;
+        TFileAttribute.Encrypted: WinAtr := faEncrypted;
       end;
 
       // Automatic Handeling
-      if HandleCompression and (DoWith = atrCompressed) then
+      if HandleCompression and (DoWith = TFileAttribute.Compressed) then
         begin
-          CompressItem(Path, DoWith in Attribs);
+          if TFile.Exists(Path) then
+            CompressFile(Path, DoWith in Attribs)
+          else
+            CompressFolder(Path, true, DoWith in Attribs);
 
           Break;
         end;
@@ -560,17 +788,46 @@ begin
     end;
 end;
 
-
-function CompressItem(const Path:string;Compress:Boolean; FolderRecursive: boolean):integer;
+function FileTimeToDateTime(Value: TFileTime): TDateTime;
+var
+  Tmp: Integer;
 begin
-  Result := 0;
-  if TFile.Exists(Path) then
-    CompressFile(Path, Compress)
-  else
-    CompressFolder(Path, FolderRecursive, Compress);
+  FileTimeToDosDateTime(Value, LongRec(Tmp).Hi,
+    LongRec(Tmp).Lo);
+  Result := FileDateToDateTime(Tmp);
 end;
 
-function  CompressFile(const FileName:string;Compress:Boolean):integer;
+function FileFlagsToIOFlags(Flags: TFileIOFlags): FILEOP_FLAGS;
+begin
+  // Converts set TFileIOFlags flags to Bit operation
+  Result := 0;
+  if TFileIOFlag.ConfirmMouse in Flags then
+    Result := Result or FOF_CONFIRMMOUSE;
+  if TFileIOFlag.Silent in Flags then
+    Result := Result or FOF_SILENT;
+  if TFileIOFlag.NoConfirmation in Flags then
+    Result := Result or FOF_NOCONFIRMATION;
+  if TFileIOFlag.AllowUndo in Flags then
+    Result := Result or FOF_ALLOWUNDO;
+  if TFileIOFlag.FilesOnly in Flags  then
+    Result := Result or FOF_FILESONLY;
+  if TFileIOFlag.SimpleProgress in Flags  then
+    Result := Result or FOF_SIMPLEPROGRESS;
+  if TFileIOFlag.NoConfirMakeDir in Flags  then
+    Result := Result or FOF_NOCONFIRMMKDIR;
+  if TFileIOFlag.NoErrorUI in Flags  then
+    Result := Result or FOF_NOERRORUI;
+  if TFileIOFlag.NoSecurityAttrib in Flags  then
+    Result := Result or FOF_NOCOPYSECURITYATTRIBS;
+  if TFileIOFlag.NoRecursion in Flags  then
+    Result := Result or FOF_NORECURSION;
+  if TFileIOFlag.WantNukeWarning in Flags  then
+    Result := Result or FOF_WANTNUKEWARNING;
+  if TFileIOFlag.NoUI in Flags  then
+    Result := Result or FOF_NO_UI;
+end;
+
+function CompressFile(const FileName:string;Compress:Boolean):integer;
 var
   FSWbemLocator : OLEVariant;
   FWMIService   : OLEVariant;
@@ -585,7 +842,7 @@ begin;
     Result:=FWbemObject.UnCompress();
 end;
 
-function  CompressFolder(const FolderName:string;Recursive, Compress:Boolean):integer;
+function CompressFolder(const FolderName:string;Recursive, Compress:Boolean):integer;
 var
   FSWbemLocator : OLEVariant;
   FWMIService   : OLEVariant;
@@ -606,344 +863,6 @@ begin;
     else
      Result:=FWbemObject.UnCompress();
 end;
-
-function GetNTVersion: single;
-begin
-  Result := Win32MajorVersion + Win32MinorVersion / 10;
-end;
-
-function GetUserNameString: string;
-var
-  nSize: DWord;
-begin
- nSize := 1024;
- SetLength(Result, nSize);
-
- // Error
- if GetUserName(PChar(Result), nSize) then
-   SetLength(Result, nSize-1)
- else
-   RaiseLastOSError;
-end;
-
-function GetComputerNameString: string;
-var
-  nSize: DWord;
-begin
- nSize := 1024;
- SetLength(Result, nSize);
-
- if not GetComputerName(PChar(Result), nSize) then
-   // Error
-   RaiseLastOSError;
-end;
-
-function GetPathInAppData(appname: string; codsoft,
-  create: boolean; foldertype: TAppDataType): string;
-begin
-  if GetNTVersion < 6 then
-    // Windows Xp and below
-    result := GetSystemDrive + '\Documents and Settings\' + GetUserNameString + '\Application Data\'
-      else
-        // Windows Vista and above
-        begin
-          // Local, Roaming & Low
-          case foldertype of
-            adtLocal: result := ReplaceWinPath('%LOCALAPPDATA%\');
-            adtRoaming: result := ReplaceWinPath('%APPDATA%\');
-            adtLocalLow: result := ReplaceWinPath('%userprofile%\AppData\LocalLow\');
-          end;
-        end;
-
-  // Codrut Software
-  if codsoft then begin
-    result := result + 'CodrutSoftware\';
-    if create and (not TDirectory.Exists(result)) then
-      TDirectory.CreateDirectory(result);
-  end;
-
-  // Get Result & Create
-  result := result + appname + '\';
-  if create and (not TDirectory.Exists(result)) then
-    TDirectory.CreateDirectory(result);
-end;
-
-function FileExtension(FileName: string; includeperiod: boolean): string;
-begin
-  Result := ExtractFileExt( FileName );
-
-  if not includeperiod then
-    Result := Copy( Result, 2, Length( Result ) );
-end;
-
-function ValidateFileName(AString: string): string;
-var
-  x: integer;
-const
-  IllegalCharSet: TSysCharSet =
-    ['|','<','>','\','^','+','=','?','/','[',']','"',';',',','*'];
-begin
-  for x := 1 to Length(AString) do
-    if CharInSet(AString[x], IllegalCharSet) then
-      AString[x] := '_';
-  Result := AString;
-end;
-
-function GetFolderSize( Path: string ): int64;
-var
- tsr: TSearchRec;
-begin
-  result := 0;
-  // Path
-  Path := ReplaceWinPath( IncludeTrailingPathDelimiter ( path ) );
-
-  // Search
-  if FindFirst ( path + '*', faAnyFile, tsr ) = 0 then begin
-    repeat
-      if ( tsr.attr and faDirectory ) > 0 then
-        begin
-          if ( tsr.name <> '.' ) and ( tsr.name <> '..' ) then
-            inc ( result, GetFolderSize ( path + tsr.name ) );
-        end
-      else
-        begin
-          inc ( result, tsr.size );
-        end;
-    until FindNext ( tsr ) <> 0;
-  FindClose ( tsr );
- end;
-end;
-
-function GetFolderSizeInStr(path: string): string;
-begin
-  if DirectoryExists(path) then begin
-    Result := SizeInString(GetFolderSize(path));
-  end else
-    Result := 'NaN';
-end;
-
-function SizeInString(Size: int64; MaxDecimals: cardinal): string;
-var
-  Decim: integer;
-  DivValue: integer;
-begin
-  Decim := Trunc( Power( 10, MaxDecimals ) );
-
-  // Get Div Value
-  case Abs( size ) of
-    0..1023: DivValue := 0; // B
-    1024..1048575: DivValue := 1; // KB
-    1048576..1073741823: DivValue := 2; // MB
-    else DivValue := 3;
-  end;
-
-  // Div
-  Result := FloatToStr( Trunc(Size / Power( 1024, DivValue) * Decim ) / Decim ) ;
-
-  // Measurement
-  case DivValue of
-    0: Result := Concat( Result, ' ', 'B' );
-    1: Result := Concat( Result, ' ', 'KB' );
-    2: Result := Concat( Result, ' ', 'MB' );
-    3: Result := Concat( Result, ' ', 'GB' );
-  end;
-end;
-
-function GetFileSize(FileName: WideString): Int64;
-var
-  sr : TSearchRec;
-begin
-  if FindFirst(fileName, faAnyFile, sr ) = 0 then
-    result := Int64(sr.FindData.nFileSizeHigh) shl Int64(32) + Int64(sr.FindData.nFileSizeLow)
-  else
-    result := -1;
-  FindClose(sr);
-end;
-
-function GetFileSizeInStr(FileName: WideString): string;
-begin
-  if FileExists(fileName) then begin
-    Result := SizeInString(GetFileSize(filename));
-  end else
-    Result := NOT_NUMBER;
-end;
-
-{ CFileItem }
-
-function StrCopy(mainstring: string; frompos, topos: integer): string;
-begin
-  if frompos < 1 then
-    frompos := 1;
-  Result := Copy(mainstring, frompos, topos - frompos + 1);
-end;
-
-function FileTimeToDateTime(Value: TFileTime): TDateTime;
-var
-  Tmp: Integer;
-begin
-  FileTimeToDosDateTime(Value, LongRec(Tmp).Hi,
-    LongRec(Tmp).Lo);
-  Result := FileDateToDateTime(Tmp);
-end;
-
-function ShellPath(path: string): string;
-begin
-  Path := Path.Replace(Char(39), '"');
-
-  Result := path;
-end;
-
-function CFileItem.Exists: boolean;
-begin
-  if TFile.Exists(Filepath) then
-    Result := true
-  else
-    Result := false;
-end;
-
-procedure CFileItem.Load(filename: string; restrictinfo: boolean);
-var
-  attributes: TWin32FileAttributeData;
-begin
-  filename := ShellPath(filename);
-  if NOT fileexists(filename) then
-    Exit;
-
-  filepath := filename;
-
-  fileonlyname := ExtractFileName(filename);
-
-  extention := ExtractFileExt(fileonlyname);
-
-  if NOT restrictinfo then
-  begin
-    if NOT GetFileAttributesEx(PWideChar(filename), GetFileExInfoStandard, @attributes) then
-      EXIT;
-
-    Size := Int64(attributes.nFileSizeLow) or Int64(attributes.nFileSizeHigh shl 32);
-
-    Attribute := attributes.dwFileAttributes;
-
-    WriteDate := FileTimeToDateTime(attributes.ftLastWriteTime);
-    AccessDate := FileTimeToDateTime(attributes.ftLastAccessTime);
-    CreationDate := FileTimeToDateTime(attributes.ftCreationTime);
-  end;
-end;
-
-{ CFolderItem }
-
-function CFolderItem.Exists: boolean;
-begin
-  if TDirectory.Exists(Path) then
-    Result := true
-  else
-    Result := false;
-end;
-
-procedure CFolderItem.Load(foldername: string; restrictinfo: boolean);
-begin
-  foldername := ShellPath(foldername);
-  if NOT directoryexists(foldername) then
-    Exit;
-
-  Path := foldername;
-
-  //FolderOnlyName := StrCopy(foldername, foldername.LastIndexOf('\') + 2, Length(foldername) );
-  FolderOnlyName := ExtractFileName( ExcludeTrailingPathDelimiter(foldername) );
-
-
-
-  if NOT restrictinfo then
-  begin
-    Size := GetFolderSize(foldername);
-
-    WriteDate := TDirectory.GetLastWriteTime(foldername);
-    AccessDate := TDirectory.GetLastAccessTime(foldername);
-    CreationDate := TDirectory.GetCreationTime(foldername);
-  end;
-end;
-
-function GetUserShellLocation(ShellLocation: TUserShellLocation): string;
-var
-  RegString, RegValue: string;
-  Registry: TWinRegistry;
-begin
-  case ShellLocation of
-    shlUser: Exit( ReplaceWinPath('%USERPROFILE%') );
-    shlAppData: RegValue := 'AppData';
-    shlAppDataLocal: RegValue := 'Local AppData';
-    shlDocuments: RegValue := 'Personal';
-    shlPictures: RegValue := 'My Pictures';
-    shlDesktop: RegValue := 'Desktop';
-    shlMusic: RegValue := 'My Music';
-    shlVideos: RegValue := 'My Video';
-    shlNetwork: RegValue := 'NetHood';
-    shlRecent: RegValue := 'Recent';
-    shlStartMenu: RegValue := 'Start Menu';
-    shlPrograms: RegValue := 'Programs';
-    shlStartup: RegValue := 'Startup';
-    shlDownloads: RegValue := '{374DE290-123F-4565-9164-39C4925E467B}';
-  end;
-
-  Registry := TWinRegistry.Create;
-  try
-    RegString := Registry.GetStringValue('HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders', RegValue);
-  finally
-    Registry.Free;
-  end;
-
-  Result := ReplaceWinPath(RegString);
-end;
-
-{ CDiskItem }
-
-constructor CDiskItem.Create;
-begin
-  FileItem := CFileItem.Create;
-  FolderItem := CFolderItem.Create;
-end;
-
-destructor CDiskItem.Destroy;
-begin
-  FreeAndNil(FileItem);
-  FreeAndNil(FolderItem);
-  inherited;
-end;
-
-function CDiskItem.Exists: boolean;
-begin
-  if ItemType = dskFile then
-    Result := FileItem.Exists
-  else
-    Result := FolderItem.Exists;
-end;
-
-procedure CDiskItem.Load(pathtoitem: string; restrictinfo: boolean);
-begin
-  if fileexists(pathtoitem) then
-  begin
-    FileItem.Load(pathtoitem, restrictinfo);
-
-    Size := FileItem.Size;
-    ItemType := dskFile;
-  end
-  else
-  if directoryexists(pathtoitem) then
-  begin
-    FolderItem.Load(pathtoitem, restrictinfo);
-
-    Size := FolderItem.Size;
-    ItemType := dskDirectory;
-  end;
-
-  Path := pathtoitem;
-end;
-
-procedure CDiskItem.TrimTrailingPathDelimiter;
-begin
-  Path := ExcludeTrailingPathDelimiter(Path);
-  FolderItem.Path := ExcludeTrailingPathDelimiter(FolderItem.Path);
-  FileItem.Filepath := ExcludeTrailingPathDelimiter(FileItem.Filepath);
-end;
+{$ENDIF}
 
 end.

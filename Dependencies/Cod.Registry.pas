@@ -22,11 +22,7 @@ interface
 
   type
     TRegistryMode = (Unloaded, Windows32, Windows64, Automatic);
-    TRegistryError = (None, AccessDenied, KeyNoExist, ReadError);
-    TRegistryErrorKind = (Disabled, Receive, OperatingSystem);
-    TRegistryNeed = (Read, Write, Complete);
-
-    TRegistryOnError = procedure(AError: TRegistryError) of object;
+    TRegistryNeed = (None, Read, Write, Complete);
 
     // Moved Helper from Cod.VarHelpers for FMX compatability
     TRegHelper = class helper for TRegistry
@@ -49,10 +45,15 @@ interface
       class function DeleteKey(KeyLocation: string): boolean;
       class function RenameKey(KeyLocation, NewName: string): boolean;
 
-      class function GetStringValue(KeyLocation, ValueName: string): string;
-      class function GetIntValue(KeyLocation, ValueName: string): integer;
+      class function GetStringValue(KeyLocation, ValueName: string): string; overload;
+      class function GetIntValue(KeyLocation, ValueName: string): integer; overload;
+      class function GetBoolValue(KeyLocation, ValueName: string): boolean; overload;
 
-      class function GetValueExists(KeyLocation, ValueName: string): boolean;
+      class function WriteValue(KeyLocation, ValueName: string; AValue: string): boolean; overload;
+      class function WriteValue(KeyLocation, ValueName: string; AValue: integer): boolean; overload;
+      class function WriteValue(KeyLocation, ValueName: string; AValue: boolean): boolean; overload;
+
+      class function ValueExists(KeyLocation, ValueName: string): boolean;
       class function DeleteValue(KeyLocation, ValueName: string): boolean;
     end;
 
@@ -60,24 +61,23 @@ interface
     TWinRegistry = class(TObject)
     private
       // Vars
-      FLastError: TRegistryError;
       FRegistry: TRegistry;
       FRegistryMode: TRegistryMode;
       FHive, FDefaultHive: HKEY;
       FAutoHive: boolean;
-      FOnError: TRegistryOnError;
-      FErrorKind: TRegistryErrorKind;
+      FSilenceErrors: boolean;
 
       // Registry Edit
-      procedure CreateReg(AType: TRegistryNeed; APosition: string = '');
+      procedure PrepareReg(AType: TRegistryNeed; APosition: string = '');
+      procedure FinaliseReg;
 
       function GetPathEnd(Path: string): string;
       function GetPathItem(Path: string): string;
       procedure ApplyPath(var Path: string);
       procedure RemovePathLevels(var Path: string; Levels: integer);
 
-      // Error
-      procedure RaiseError(AError: TRegistryError);
+      // Exceptions
+      procedure HandleException(E: Exception);
 
       // Registry Mode
       function ApplyRegMode(mode: Cardinal = KEY_ALL_ACCESS): Cardinal;
@@ -85,22 +85,15 @@ interface
       // Imported Utils
       function IsWOW64Emulated: Boolean;
       function IsWow64Executable: Boolean;
-    procedure SetManualHive(const Value: HKEY);
+      procedure SetManualHive(const Value: HKEY);
 
     public
-      // Create
-      constructor Create;
-      destructor Destroy; override;
-
-      // Registry Mode
-      procedure SetNewRegistryMode(AMode: TRegistryMode);
-
       // Key Functions
       function CreateKey(KeyLocation: string): boolean;
       function KeyExists(KeyLocation: string): boolean;
       function DeleteKey(KeyLocation: string): boolean;
       function CloneKey(KeyLocation: string): string;
-      function RenameKey(KeyLocation, NewName: string): boolean;
+      function RenameKey(KeyLocation, NewName: string): boolean;  // Only provide new name, not entire path
       function MoveKey(KeyLocation, NewLocation: string; AlsoDelete: boolean = true): boolean;
       function CopyKey(KeyLocation, NewLocation: string): boolean;
 
@@ -143,16 +136,8 @@ interface
       (* Properties *)
       property RegistryMode: TRegistryMode read FRegistryMode write FRegistryMode;
 
-      // Error Handeling
-      property LastError: TRegistryError read FLastError;
-      { This property defines who will handle errors. Windows, the OnRecieve
-        procedure or to just ignore them }
-      property ErrorKind: TRegistryErrorKind read FErrorKind write FErrorKind;
-
-      // Error Procedures
-      property OnRaiseError: TRegistryOnError read FOnError write FOnError;
-
-      procedure RegistryReceiveError(AError: TRegistryError);
+      // Erro
+      property SilenceErrors: boolean read FSilenceErrors write FSilenceErrors;
 
       // Registry Mode
       procedure ResetRegistryMode;
@@ -168,6 +153,10 @@ interface
       class function HiveToString(Hive: HKEY): string;
       class function StringToHive(AString: string; Default: HKEY = HKEY_CURRENT_USER): HKEY;
       class function StringToHiveEx(AString: string; var Hive: HKEY): boolean;
+
+      // Create
+      constructor Create;
+      destructor Destroy; override;
     end;
 
 const
@@ -254,10 +243,11 @@ begin
 
   // Default
   FDefaultHive := HKEY_CURRENT_USER;
-  FErrorKind := TRegistryErrorKind.Receive;
-  FLastError := TRegistryError.None;
+  FSilenceErrors := true;
   FAutoHive := true;
-  FOnError := RegistryReceiveError;
+
+  // Make registry
+  FRegistry := TRegistry.Create;
 end;
 
 destructor TWinRegistry.Destroy;
@@ -266,6 +256,12 @@ begin
   FRegistry.Free;
 
   inherited Destroy;
+end;
+
+procedure TWinRegistry.FinaliseReg;
+begin
+  // Close if any key open
+  FRegistry.CloseKey;
 end;
 
 function TWinRegistry.ApplyRegMode(mode: Cardinal): Cardinal;
@@ -282,134 +278,170 @@ function TWinRegistry.CreateKey(KeyLocation: string): boolean;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, GetPathItem(KeyLocation) );
+  PrepareReg( TRegistryNeed.Write, GetPathItem(KeyLocation) );
 
   // Create Key
   Result := false;
   try
     Result := FRegistry.CreateKey( GetPathEnd(KeyLocation) );
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.DeleteKey(KeyLocation: string): boolean;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, GetPathItem(KeyLocation) );
+  PrepareReg( TRegistryNeed.Write, GetPathItem(KeyLocation) );
 
   // Create Key
   Result := false;
   try
     Result := FRegistry.DeleteKey( GetPathEnd(KeyLocation) );
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.DeleteValue(KeyLocation, ValueName: string): boolean;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   Result := false;
   try
     Result := FRegistry.DeleteValue( ValueName );
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetStringValue(KeyLocation, ValueName: string): string;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   try
     Result := FRegistry.ReadString(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetTimeValue(KeyLocation, ValueName: string): TTime;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := 0;
   try
     Result := FRegistry.ReadTime(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetDateTimeValue(KeyLocation, ValueName: string): TDateTime;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := 0;
   try
     Result := FRegistry.ReadDateTime(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetDateValue(KeyLocation, ValueName: string): TDate;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := 0;
   try
     Result := FRegistry.ReadDate(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetFloatValue(KeyLocation, ValueName: string): double;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := 0;
   try
     Result := FRegistry.ReadFloat(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetValueType(KeyLocation, ValueName: string): TRegDataType;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := rdUnknown;
   try
     Result := FRegistry.GetDataType( ValueName );
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 
@@ -441,14 +473,18 @@ function TWinRegistry.GetValueAsStringEx(KeyLocation, ValueName: string): string
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   try
     Result := FRegistry.GetDataAsString(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetValueAsString(KeyLocation, ValueName: string): string;
@@ -457,7 +493,7 @@ var
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   try
@@ -469,74 +505,88 @@ begin
       rdBinary: GetStringValue(KeyLocation, ValueName);
     end;
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetValueExists(KeyLocation, ValueName: string): boolean;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := false;
   try
     Result := FRegistry.ValueExists( ValueName );
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetValueNames(KeyLocation: string): TStringList;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := TStringList.Create;
   try
     FRegistry.GetValueNames( Result );
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.KeyExists(KeyLocation: string): boolean;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, GetPathItem(KeyLocation) );
+  PrepareReg( TRegistryNeed.Read, GetPathItem(KeyLocation) );
 
   // Create Key
-  Result := false;
-  try
-    Result := FRegistry.KeyExists( GetPathEnd(KeyLocation) );
-  except
-    RaiseError( TRegistryError.ReadError );
-  end;
+  Result := FRegistry.KeyExists( GetPathEnd(KeyLocation) );
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.CloneKey(KeyLocation: string): string;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Complete, GetPathItem(KeyLocation) );
+  PrepareReg( TRegistryNeed.Complete, GetPathItem(KeyLocation) );
 
   // Create Key
   try
     Result := FRegistry.CloneKey( GetPathEnd(KeyLocation) );
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.RenameKey(KeyLocation, NewName: string): boolean;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Complete, GetPathItem(KeyLocation) );
+  PrepareReg( TRegistryNeed.Complete, GetPathItem(KeyLocation) );
 
   // Create Key
   Result := false;
@@ -545,19 +595,18 @@ begin
 
     Result := FRegistry.KeyExists( NewName );
   except
-    RaiseError( TRegistryError.KeyNoExist );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 procedure TWinRegistry.SetManualHive(const Value: HKEY);
 begin
   FAutoHive := false;
   FDefaultHive := Value;
-end;
-
-procedure TWinRegistry.SetNewRegistryMode(AMode: TRegistryMode);
-begin
-  FRegistryMode := AMode;
 end;
 
 class function TWinRegistry.StringToHive(AString: string; Default: HKEY): HKEY;
@@ -617,7 +666,7 @@ function TWinRegistry.MoveKey(KeyLocation, NewLocation: string; AlsoDelete: bool
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Complete, GetPathItem(KeyLocation) );
+  PrepareReg( TRegistryNeed.Complete, GetPathItem(KeyLocation) );
 
   // Create Key
   Result := false;
@@ -625,8 +674,12 @@ begin
     FRegistry.MoveKeyTo( GetPathEnd(KeyLocation), NewLocation, AlsoDelete );
     Result := true;
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.CopyKey(KeyLocation, NewLocation: string): boolean;
@@ -638,63 +691,79 @@ function TWinRegistry.GetBooleanValue(KeyLocation, ValueName: string): boolean;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := false;
   try
     Result := FRegistry.ReadBool(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetCurrencyValue(KeyLocation, ValueName: string): currency;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := 0;
   try
     Result := FRegistry.ReadCurrency(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetIntValue(KeyLocation, ValueName: string): integer;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := 0;
   try
     Result := FRegistry.ReadInteger(ValueName);
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 function TWinRegistry.GetKeyNames(KeyLocation: string): TStringList;
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Read, KeyLocation );
+  PrepareReg( TRegistryNeed.Read, KeyLocation );
 
   // Create Key
   Result := TStringList.Create;
   try
     FRegistry.GetKeyNames( Result );
   except
-    RaiseError( TRegistryError.ReadError );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
-procedure TWinRegistry.CreateReg(AType: TRegistryNeed; APosition: string);
+procedure TWinRegistry.PrepareReg(AType: TRegistryNeed; APosition: string);
 var
   Access: Cardinal;
 begin
@@ -707,7 +776,7 @@ begin
   end;
 
   // Create
-  FRegistry := TRegistry.Create( Access );
+  FRegistry.Access := Access;
 
   // Open Hive
   FRegistry.RootKey := FHive;
@@ -754,15 +823,6 @@ begin
     end;
 end;
 
-procedure TWinRegistry.RegistryReceiveError(AError: TRegistryError);
-begin
-  case AError of
-    TRegistryError.AccessDenied: ShowMessage( 'Windows Registry Error: Access Denied' );
-    TRegistryError.KeyNoExist: ShowMessage( 'Windows Registry Error: The specified key does not exist' );
-    TRegistryError.ReadError: ShowMessage( 'Windows Registry Error: Cannot read from the Windows Registry' );
-  end;
-end;
-
 procedure TWinRegistry.RemovePathLevels(var Path: string; Levels: integer);
 var
   P: integer;
@@ -777,45 +837,48 @@ begin
     end;
 end;
 
-procedure TWinRegistry.RaiseError(AError: TRegistryError);
+procedure TWinRegistry.HandleException(E: Exception);
 begin
-  // Error Message
-  case FErrorKind of
-    TRegistryErrorKind.Receive: if Assigned(FOnError) then
-        FOnError(AError);
-    TRegistryErrorKind.OperatingSystem: RaiseLastOSError;
-  end;
+  if FSilenceErrors then
+    Exit;
 
-  // Set Property
-  FLastError := AError;
+  raise E;
 end;
 
 procedure TWinRegistry.WriteStringValue(KeyLocation, ItemName: string; Value: string);
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   try
     FRegistry.WriteString(ItemName, Value);
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 procedure TWinRegistry.WriteTime(KeyLocation, ItemName: string; Value: TTime);
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   try
     FRegistry.WriteTime(ItemName, Value);
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 procedure TWinRegistry.WriteValue(KeyLocation, ItemName: string; Value: boolean);
@@ -858,84 +921,108 @@ procedure TWinRegistry.WriteBooleanValue(KeyLocation, ItemName: string; Value: b
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   try
     FRegistry.WriteBool(ItemName, Value);
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 procedure TWinRegistry.WriteCurrency(KeyLocation, ItemName: string; Value: Currency);
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   try
     FRegistry.WriteCurrency(ItemName, Value);
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 procedure TWinRegistry.WriteDate(KeyLocation, ItemName: string; Value: TDate);
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   try
     FRegistry.WriteDate(ItemName, Value);
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 procedure TWinRegistry.WriteDateTimeValue(KeyLocation, ItemName: string; Value: TDateTime);
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   try
     FRegistry.WriteDateTime(ItemName, Value);
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 procedure TWinRegistry.WriteFloatValue(KeyLocation, ItemName: string; Value: double);
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   try
     FRegistry.WriteFloat(ItemName, Value);
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 procedure TWinRegistry.WriteIntValue(KeyLocation, ItemName: string; Value: integer);
 begin
   // Prepare bPath & Open
   ApplyPath( KeyLocation );
-  CreateReg( TRegistryNeed.Write, KeyLocation );
+  PrepareReg( TRegistryNeed.Write, KeyLocation );
 
   // Create Key
   try
     FRegistry.WriteInteger(ItemName, Value);
   except
-    RaiseError( TRegistryError.AccessDenied );
+    on E: Exception do
+      HandleException(E);
   end;
+
+  // End
+  FinaliseReg;
 end;
 
 { TRegHelper }
@@ -1098,6 +1185,11 @@ begin
   end;
 end;
 
+class function TQuickReg.GetBoolValue(KeyLocation, ValueName: string): boolean;
+begin
+  Result := GetIntValue(KeyLocation, ValueName) <> 0;
+end;
+
 class function TQuickReg.GetIntValue(KeyLocation, ValueName: string): integer;
 var
   Registry: TWinRegistry;
@@ -1122,7 +1214,7 @@ begin
   end;
 end;
 
-class function TQuickReg.GetValueExists(KeyLocation,
+class function TQuickReg.ValueExists(KeyLocation,
   ValueName: string): boolean;
 var
   Registry: TWinRegistry;
@@ -1133,6 +1225,15 @@ begin
   finally
     Registry.Free;
   end;
+end;
+
+class function TQuickReg.WriteValue(KeyLocation, ValueName: string;
+  AValue: boolean): boolean;
+begin
+  if AValue then
+    Result := WriteValue(KeyLocation, ValueName, 1)
+  else
+    Result := WriteValue(KeyLocation, ValueName, 0);
 end;
 
 class function TQuickReg.KeyExists(KeyLocation: string): boolean;
@@ -1154,6 +1255,34 @@ begin
   Registry := TWinRegistry.Create;
   try
     Result := Registry.RenameKey(KeyLocation, NewName);
+  finally
+    Registry.Free;
+  end;
+end;
+
+class function TQuickReg.WriteValue(KeyLocation, ValueName: string;
+  AValue: integer): boolean;
+var
+  Registry: TWinRegistry;
+begin
+  Registry := TWinRegistry.Create;
+  try
+    Registry.WriteValue(KeyLocation, ValueName, AValue);
+    Result := Registry.GetValueExists(KeyLocation, ValueName);
+  finally
+    Registry.Free;
+  end;
+end;
+
+class function TQuickReg.WriteValue(KeyLocation, ValueName,
+  AValue: string): boolean;
+var
+  Registry: TWinRegistry;
+begin
+  Registry := TWinRegistry.Create;
+  try
+    Registry.WriteValue(KeyLocation, ValueName, AValue);
+    Result := Registry.GetValueExists(KeyLocation, ValueName);
   finally
     Registry.Free;
   end;

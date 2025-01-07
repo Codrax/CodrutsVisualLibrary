@@ -9,6 +9,7 @@ uses
   Vcl.Controls,
   Vcl.Graphics,
   Vcl.ExtCtrls,
+  Cod.Types,
   Cod.Graphics,
   Cod.VarHelpers,
   Types,
@@ -26,9 +27,13 @@ type
       FEnable: boolean;
       FSpeed: integer;
       function Paint : Boolean;
+
+      function CanUpdate: boolean;
+      procedure SetSpeed(const Value: integer);
+      procedure SetEnable(const Value: boolean);
     published
-      property Enable : boolean read FEnable write FEnable stored Paint;
-      property AnimationSpeed : integer read FSpeed write FSpeed stored Paint;
+      property Enable : boolean read FEnable write SetEnable stored Paint;
+      property AnimationSpeed : integer read FSpeed write SetSpeed stored Paint;
   end;
 
   CImage = class(TGraphicControl)
@@ -235,9 +240,12 @@ var
 begin
   MRect := Rect(0, 0, Width, Height);
 
-  if (Picture.Graphic <> nil) and not Picture.Graphic.Empty then
+  if (Picture.Graphic <> nil) and not Picture.Graphic.Empty
+    and (Picture.Width > 0) and (Picture.Height > 0) then
     try
-      Result := GetDrawModeRects(MRect, Picture.Graphic, DrawMode);
+      Result := RectangleLayouts(
+        TSize.Create(Picture.Graphic.Width, Picture.Graphic.Height),
+        MRect, DrawModeToImageLayout(DrawMode));
     except
       Result := [MRect];
     end
@@ -464,7 +472,6 @@ begin
     if TLinkObservers.EditLinkIsEditing(Observers) then
       TLinkObservers.EditLinkUpdate(Observers);
 
-
   ApplyGif;
 end;
 
@@ -596,12 +603,41 @@ end;
 
 { CImageGif }
 
+function CImageGif.CanUpdate: boolean;
+begin
+  Result := false;
+  if CImage(Self.Owner) <> nil then
+    with CImage(Self.Owner)  do
+      Result := (Picture <> nil) and (Picture.Graphic is TGifImage);
+end;
+
 function CImageGif.Paint: Boolean;
 begin
   if Self.Owner is CImage then begin
-    //CImage(Self.Owner).Paint;
+    //CImage(Self.Owner).ApplyGif;
     Result := True;
   end else Result := False;
+end;
+
+procedure CImageGif.SetEnable(const Value: boolean);
+begin
+  FEnable := Value;
+
+  if CanUpdate then
+    CImage(Self.Owner).ApplyGif;
+end;
+
+procedure CImageGif.SetSpeed(const Value: integer);
+begin
+  FSpeed := Value;
+
+  if CanUpdate and Enable then
+    begin
+      FEnable := false;
+      CImage(Self.Owner).ApplyGif;
+      FEnable := true;
+      CImage(Self.Owner).ApplyGif;
+    end;
 end;
 
 end.

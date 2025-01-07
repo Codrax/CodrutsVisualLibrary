@@ -243,7 +243,7 @@ begin
       end else
         Brush.Color := TStyleManager.ActiveStyle.GetSystemColor(clBtnFace);
       end;
-    FillRect(cliprect);
+    FillRect( Self.ClientRect );
     bgcolor := Brush.Color;
 
     Pen.Width := FPenWid;
@@ -284,8 +284,8 @@ begin
   end;
   finally
     // Finalise
-   //Canvas.CopyRect(Rect(0,0,width,height), workon.Canvas, workon.canvas.ClipRect);
-   CopyRoundRect(workon.Canvas, MakeRoundRect(Rect(3, 3, Width - 3, Height - 3), 1000, 1000), Canvas, Canvas.ClipRect);
+   //Canvas.CopyRect(Rect(0,0,width,height), workon.Canvas, workon.canvas.Self.ClientRect);
+   CopyRoundRect(workon.Canvas, MakeRoundRect(Rect(3, 3, Width - 3, Height - 3), 1000, 1000), Canvas, Self.ClientRect);
 
    workon.Free;
   end;

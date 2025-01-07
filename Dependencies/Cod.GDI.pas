@@ -15,8 +15,8 @@ unit Cod.GDI;
 
 interface
   uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
-  Vcl.Graphics, Imaging.pngimage, Imaging.GIFImg, Imaging.jpeg, Winapi.GDIPAPI,
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, System.Types,
+  Vcl.Graphics, Vcl.Imaging.pngimage, Vcl.Imaging.GIFImg, Vcl.Imaging.jpeg, Winapi.GDIPAPI,
   Winapi.GDIPOBJ, Cod.ColorUtils, Cod.Types;
 
   type
@@ -36,6 +36,12 @@ interface
     function MakePen(Color: TColor; Width: Single = 1; Opacity: byte = 255): TGDIPen; overload;
     function MakePen(R, G, B: Byte; Width: Single = 1; Opacity: byte = 255): TGDIPen; overload;
 
+    // Utils
+    function MakePointF(APoint: TPointF): TGPPointF; overload;
+    function MakePointF(APoint: TPoint): TGPPointF; overload;
+    function MakeRectF(ARect: TRectF): TGPRectF; overload;
+    function MakeRectF(ARect: TRect): TGPRectF; overload;
+
     // Effects
     procedure TintPicture(Canvas: TCanvas; Rectangle: TRect; Color: TColor = clBlack; Opacity: byte = 75; Buffered: boolean = true);
 
@@ -46,6 +52,8 @@ interface
     procedure DrawCircle(Canvas: TCanvas; Rectangle: TRect; Brush: TGDIBrush; Pen: TGDIPen; Buffered: boolean = true);
     procedure DrawPolygon(Canvas: TCanvas; Points: TArray<TPoint>; Brush: TGDIBrush; Pen: TGDIPen; Buffered: boolean = true);
     procedure DrawLine(Canvas: TCanvas; Line: TLine; Pen: TGDIPen; Buffered: boolean = true);
+    procedure DrawRoundedLine(Canvas: TCanvas; Line: TLine; Pen: TGDIPen; Buffered: boolean = true);
+    procedure DrawRoundedCornerLine(Canvas: TCanvas; Points: TPointsF; Pen: TGDIPen; CornerRadius: single; Buffered: boolean = true);
     procedure DrawGraphic(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Angle: integer = 0; Buffered: boolean = true);
     procedure DrawGraphicRound(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Roundness: real; Buffered: boolean = true);
     procedure GraphicStretchDraw(Canvas: TCanvas; Rect: TRect; Graphic: TGraphic; Opacity: Byte); overload;
@@ -59,7 +67,65 @@ interface
     procedure DrawBitmapHighQuality(Handle: THandle; ARect: TRect; Bitmap: TBitmap; Opacity: Byte = 255;
     HighQality: Boolean = False; EgdeFill: Boolean = False);
 
+    // Bitmap
+    procedure GrayscaleBitmap(Bitmap: TBitmap);
+
 implementation
+
+// utils
+function MakePointF(APoint: TPointF): TGPPointF; overload;
+begin
+  Result.X := APoint.X;
+  result.Y := APoint.Y;
+end;
+
+function MakePointF(APoint: TPoint): TGPPointF; overload;
+begin
+  Result.X := APoint.X;
+  result.Y := APoint.Y;
+end;
+
+function MakeRectF(ARect: TRectF): TGPRectF; overload;
+begin
+  Result.X      := ARect.Left;
+  Result.Y      := ARect.Top;
+  Result.Width  := ARect.width;
+  Result.Height := ARect.height;
+end;
+
+function MakeRectF(ARect: TRect): TGPRectF; overload;
+begin
+  Result.X      := ARect.Left;
+  Result.Y      := ARect.Top;
+  Result.Width  := ARect.width;
+  Result.Height := ARect.height;
+end;
+
+procedure GrayscaleBitmap(Bitmap: TBitmap);
+var
+  I, J: Integer;
+  ScanLine: PRGBQuad;
+  Color: TRGBQuad;
+begin
+  if (Bitmap.PixelFormat = pf32bit) then
+  begin
+    Bitmap.PixelFormat := pf32bit;
+    for I := 0 to Bitmap.Height - 1 do
+    begin
+      ScanLine := Bitmap.ScanLine[I];
+      for J := 0 to Bitmap.Width - 1 do
+      begin
+        Color := ScanLine^;
+        // Grayscale conversion formula (weighted average method)
+        Color.rgbBlue := (Color.rgbBlue + Color.rgbGreen + Color.rgbRed) div 3;
+        Color.rgbGreen := Color.rgbBlue;
+        Color.rgbRed := Color.rgbBlue;
+        ScanLine^ := Color;
+        Inc(ScanLine);
+      end;
+    end;
+  end;
+end;
 
 function MakeBrush(Color: TColor; Opacity: byte = 255): TGDIBrush;
 var
@@ -473,6 +539,190 @@ begin
   end;
 end;
 
+procedure DrawRoundedLine(Canvas: TCanvas; Line: TLine; Pen: TGDIPen; Buffered: boolean = true);
+var
+  G: TGPGRaphics;
+begin
+  // Bitmap Buffered Draw
+  if Buffered then
+    begin
+      var BMP: TBitMap;
+      var R: TLine;
+      var PenWidth: integer;
+
+      if Pen <> nil then
+        PenWidth := trunc(Pen.GetWidth)
+      else
+        PenWidth := 0;
+
+      BMP := TBitMap.Create;
+      PrepareBMP(BMP, Line.GetWidth + PenWidth * 2, Line.GetHeight + PenWidth * 2);
+      try
+        R := Line;
+        R.Offset(-Line.Rect.Left + PenWidth, -Line.Rect.Top + PenWidth);
+
+        DrawRoundedLine( BMP.Canvas, R, Pen, false);
+
+        Canvas.Draw(Line.Rect.Left - PenWidth, Line.Rect.Top - PenWidth, BMP);
+      finally
+        BMP.Free;
+      end;
+      Exit;
+    end;
+
+  // Client Draw
+  G := TGPGRaphics.Create(Canvas.Handle);
+  try
+    G.SetSmoothingMode(SmoothingModeHighQuality);
+
+    if Pen <> nil then begin
+      G.DrawLine( Pen, MakePoint(Line.Point1.X, Line.Point1.Y), MakePoint(Line.Point2.X, Line.Point2.Y) );
+
+      var B: TGDIBrush;
+      var C: TGPColor;
+      var ARect: TRectF;
+      Pen.GetColor(C);
+      B := TGDIBrush.Create( C );
+
+      ARect.TopLeft.X := Line.Point1.X;
+      ARect.TopLeft.Y := Line.Point1.Y;
+      ARect.BottomRight := ARect.TopLeft;
+      ARect.Inflate(Pen.GetWidth / 2, Pen.GetWidth / 2);
+
+      G.FillEllipse(B, MakeRectF(ARect));
+
+      ARect.TopLeft.X := Line.Point2.X;
+      ARect.TopLeft.Y := Line.Point2.Y;
+      ARect.BottomRight := ARect.TopLeft;
+      ARect.Inflate(Pen.GetWidth / 2, Pen.GetWidth / 2);
+
+      G.FillEllipse(B, MakeRectF(ARect));
+    end;
+
+    // Canvas Notify
+    if Assigned(Canvas.OnChange) then
+      Canvas.OnChange(Canvas);
+  finally
+    G.Free;
+  end;
+end;
+
+procedure LengthenLine(startPoint: TPointF; var endPoint: TPointF; pixelCount: single);
+var
+  dx, dy: single;
+begin
+  if (startPoint.EqualsTo(endPoint)) then
+    Exit; // not a line
+
+  dx := endPoint.X - startPoint.X;
+  dy := endPoint.Y - startPoint.Y;
+  if (dx = 0) then begin
+    // vertical line:
+    if (endPoint.Y < startPoint.Y) then
+      endPoint.Y := endPoint.Y - pixelCount
+    else
+      endPoint.Y := endPoint.Y + pixelCount
+  end
+  else if (dy = 0) then begin
+    // horizontal line:
+    if (endPoint.X < startPoint.X) then
+      endPoint.X := endPoint.X - pixelCount
+    else
+      endPoint.X := endPoint.X + pixelCount;
+  end
+    else
+  begin
+    // non-horizontal, non-vertical line:
+    const length = sqrt(dx * dx + dy * dy);
+    const scale = (length + pixelCount) / length;
+    dx := dx * scale;
+    dy := dy * scale;
+    endPoint.X := startPoint.X + dx;
+    endPoint.Y := startPoint.Y + dy;
+  end;
+end;
+
+procedure DrawRoundedCornerLine(Canvas: TCanvas; Points: TPointsF; Pen: TGDIPen; CornerRadius: single; Buffered: boolean);
+var
+  G: TGPGRaphics;
+  GPath: TGPGraphicsPath;
+  PreviousEndPoint, startPoint, endPoint, cornerPoint : TPointF;
+begin
+  // Bitmap Buffered Draw
+  if Buffered then
+    begin
+      var BMP: TBitMap;
+      var R: TPointsF;
+      var PenWidth: integer;
+      var Size: TRectF;
+      Size := GetValidRect(Points);
+
+      if Pen <> nil then
+        PenWidth := trunc(Pen.GetWidth)
+      else
+        PenWidth := 0;
+
+      BMP := TBitMap.Create;
+      PrepareBMP(BMP, round(Size.Width) + PenWidth * 2, round(Size.Height) + PenWidth * 2);
+      try
+        R := Points;
+
+        for var I := 0 to High(R) do
+          R[I].Offset(-Size.Left + PenWidth, -Size.Top + PenWidth);
+
+        DrawRoundedCornerLine( BMP.Canvas, R, Pen, CornerRadius, false);
+
+        Canvas.Draw(trunc(Size.Left - PenWidth), trunc(Size.Top - PenWidth), BMP);
+      finally
+        BMP.Free;
+      end;
+      Exit;
+    end;
+
+  // Client Draw
+  G := TGPGRaphics.Create(Canvas.Handle);
+  GPath := TGPGraphicsPath.Create;
+  try
+    G.SetSmoothingMode(SmoothingModeHighQuality);
+
+    PreviousEndPoint := TPointF.Zero;
+
+    if Pen <> nil then begin
+      for var I := 1 to High(Points) do begin
+        startPoint := Points[i - 1];
+        endPoint := Points[i];
+
+        if I > 1 then begin
+
+          CornerPoint := startPoint;
+          LengthenLine(endPoint, startPoint, -cornerRadius);
+          var controlPoint1, controlPoint2: TPointF;
+          controlPoint1 := cornerPoint;
+          controlPoint2 := cornerPoint;
+          LengthenLine(previousEndPoint, controlPoint1, -cornerRadius / 2);
+          LengthenLine(startPoint, controlPoint2, -cornerRadius / 2);
+          GPath.AddBezier(MakePointF(previousEndPoint), MakePointF(controlPoint1),
+            MakePointF(controlPoint2), MakePointF(startPoint));
+        end;
+        if (i + 1 < Length(Points)) then // shorten end point of all but the last line segment.
+          LengthenLine(startPoint, endPoint, -cornerRadius);
+
+        GPath.AddLine(MakePointF(startPoint), MakePointF(endPoint));
+        previousEndPoint := endPoint;
+      end;
+
+      G.DrawPath(Pen, GPath);
+    end;
+
+    // Canvas Notify
+    if Assigned(Canvas.OnChange) then
+      Canvas.OnChange(Canvas);
+  finally
+    G.Free;
+    GPath.Free;
+  end;
+end;
+
 procedure DrawGraphic(Canvas: TCanvas; Graphic: TGraphic; Rect: TRect; Angle: integer; Buffered: boolean);
 var
   G: TGPGRaphics;
@@ -836,7 +1086,6 @@ begin
   end;
 end;
 
-
 procedure GraphicAssignToBitmap(Bitmap: TBitmap; Graphic: TGraphic); Inline;
 begin
   // standart TPngImage.AssignTo works is bad!
@@ -845,7 +1094,5 @@ begin
   else
     Bitmap.Assign(Graphic);
 end;
-
-
 
 end.

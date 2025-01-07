@@ -4,9 +4,9 @@ unit Cod.Dialogs;
 interface
 
   uses
-    Cod.Files, Windows, Dialogs, Cod.Visual.Button, UITypes, Types, Classes, Variants, Graphics,
-    Forms, StdCtrls, Cod.Visual.StandardIcons, Themes, Styles,
-    Controls, Cod.Components, Cod.ColorUtils, SysUtils, Vcl.ExtCtrls,
+    Cod.Files, Windows, Vcl.Dialogs, Cod.Visual.Button, UITypes, Types, Classes, Variants, Vcl.Graphics,
+    Vcl.Forms, Vcl.StdCtrls, Cod.Visual.StandardIcons, Vcl.Themes, Vcl.Styles,
+    Vcl.Controls, Cod.Components, Cod.ColorUtils, SysUtils, Vcl.ExtCtrls,
     Vcl.TitleBarCtrls, Cod.SysUtils, Math, Cod.Math, Vcl.ComCtrls,
     Cod.Windows;
 

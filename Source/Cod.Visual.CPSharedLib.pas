@@ -4,12 +4,12 @@ interface
 uses
   UITypes,
   Classes,
-  Forms,
-  Controls,
-  Graphics,
+  Vcl.Forms,
+  Vcl.Controls,
+  Vcl.Graphics,
   SysUtils,
-  Styles,
-  Themes,
+  Vcl.Styles,
+  Vcl.Themes,
   Types;
 
 const

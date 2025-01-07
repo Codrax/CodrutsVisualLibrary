@@ -381,7 +381,7 @@ begin
       FSubstractDif := 1;
   with workon.Canvas do begin
     Brush.Color := FColors.Background;
-    FillRect( BoundsRect );
+    FillRect( ClipRect );
     Brush.Color := FColors.Foreground;
     try FillRect( Rect(0, 0, ((FPosition-FMin) * workon.Width) div FSubstractDif, workon.Height) ); except end;
 

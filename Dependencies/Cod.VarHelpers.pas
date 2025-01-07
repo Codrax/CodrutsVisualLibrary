@@ -17,11 +17,14 @@ unit Cod.VarHelpers;
 
 interface
   uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, IdHTTP,
+  System.SysUtils, System.Classes, IdHTTP,
+  {$IFDEF MSWINDOWS}
+  Windows,
+  {$ENDIF}
   VCL.Graphics, Winapi.ActiveX, Winapi.URLMon, IOUtils, System.Generics.Collections,
   Cod.ColorUtils, System.Generics.Defaults, Vcl.Imaging.pngimage,
   WinApi.GdipObj, WinApi.GdipApi, Win.Registry, Cod.GDI, Cod.Types,
-  DateUtils, Cod.Registry, UITypes;
+  DateUtils, Cod.Registry, UITypes, Vcl.Menus, Types, Vcl.Forms, Vcl.Controls;
 
   type
     // Color Helper
@@ -30,6 +33,28 @@ interface
       function ToString: string; overload; inline;
       function ToInteger: integer; overload; inline;
       function ToRGB: CRGB; overload; inline;
+    end;
+
+    // TRect Helper
+    TRectHelper = record helper for TRect
+    public
+      function GetBottomLeft: TPoint; inline;
+      function GetTopRight: TPoint; inline;
+      function Normalised: boolean; inline;
+    end;
+
+    // TPoint Helper
+    TPointHelper = record helper for TPoint
+    public
+      function ToString: string;
+      constructor FromString(S: string);
+    end;
+
+    // Popup Menu Helper
+    TPopupMenuHelper = class helper for TPopupMenu
+    public
+      procedure Popup(P: TPoint); overload; inline;
+      procedure PopupAtMouseCursor; overload; inline;
     end;
 
     // TDateTime Helper
@@ -48,13 +73,6 @@ interface
       function Millisecond: integer;
     end;
 
-    // TArray colection
-    TArrayUtils<T> = class
-    public
-      class function Contains(const x : T; const anArray : array of T) : boolean;
-      class function GetIndex(const x : T; const anArray : array of T) : integer;
-    end;
-
     // TFont
     TAdvFont = type string;
 
@@ -71,6 +89,11 @@ interface
       procedure StretchDraw(DestRect, SrcRect: TRect; Bitmap: TBitmap; Opacity: Byte); overload;
       procedure StretchDraw(Rect: TRect; Graphic: TGraphic; AOpacity: Byte); overload;
 
+      procedure MoveTo(P: TPoint); overload;
+      procedure LineTo(P: TPoint); overload;
+
+      procedure Line(P1, P2: TPoint);
+
       procedure CopyRect(const Dest: TRect; Canvas: TCanvas; const Source: TRect; Opacity: Byte); overload;
 
       procedure GDIText(Text: string; Rectangle: TRect; AlignH: TLayout = TLayout.Beginning; AlignV: TLayout = TLayout.Beginning; Angle: integer = 0);
@@ -80,6 +103,8 @@ interface
       procedure GDICircle(Rectangle: TRect; Brush: TGDIBrush; Pen: TGDIPen);
       procedure GDIPolygon(Points: TArray<TPoint>; Brush: TGDIBrush; Pen: TGDIPen);
       procedure GDILine(Line: TLine; Pen: TGDIPen);
+      procedure GDIRoundedLine(Line: TLine; Pen: TGDIPen);
+      procedure GDIRoundedCornerLine(Points: TPointsF; Pen: TGDIPen; Radius: single); overload;
       procedure GDIGraphic(Graphic: TGraphic; Rect: TRect); overload;
       procedure GDIGraphic(Graphic: TGraphic; Rect: TRect; Angle: integer); overload;
       procedure GDIGraphicRound(Graphic: TGraphic; Rect: TRect; Round: real);
@@ -89,39 +114,6 @@ interface
     TRegHelper = Cod.Registry.TRegHelper;
 
 implementation
-
-{ TArrayUtils<T> }
-
-class function TArrayUtils<T>.Contains(const x: T; const anArray: array of T): boolean;
-var
-  y : T;
-  lComparer: IEqualityComparer<T>;
-begin
-  lComparer := TEqualityComparer<T>.Default;
-  for y in anArray do
-  begin
-    if lComparer.Equals(x, y) then
-      Exit(True);
-  end;
-  Exit(False);
-end;
-
-class function TArrayUtils<T>.GetIndex(const x : T; const anArray : array of T) : integer;
-var
-  I: Integer;
-  y: T;
-  lComparer: IEqualityComparer<T>;
-begin
-  lComparer := TEqualityComparer<T>.Default;
-  for I := Low(anArray) to High(anArray) do
-    begin
-      y := anArray[I];
-
-      if lComparer.Equals(x, y) then
-        Exit(I);
-    end;
-    Exit(-1);
-end;
 
 // Color
 function TColorHelper.ToString: string;
@@ -273,9 +265,36 @@ begin
   TintPicture(Self, Rectangle, Color, Opacity);
 end;
 
-procedure TCanvasHelper.GDIRectangle(Rectangle: TRect; Brush: TGDIBrush; Pen: TGDIPen);
+procedure TCanvasHelper.Line(P1, P2: TPoint);
+begin
+  MoveTo(P1);
+  LineTo(P2);
+end;
+
+procedure TCanvasHelper.LineTo(P: TPoint);
+begin
+  LineTo(P.X, P.Y);
+end;
+
+procedure TCanvasHelper.MoveTo(P: TPoint);
+begin
+  MoveTo(P.X, P.Y);
+end;
+
+procedure TCanvasHelper.GDIRectangle(Rectangle: TRect; Brush: TGDIBrush;
+  Pen: TGDIPen);
 begin
   DrawRectangle(Self, Rectangle, Brush, Pen);
+end;
+
+procedure TCanvasHelper.GDIRoundedCornerLine(Points: TPointsF; Pen: TGDIPen; Radius: single);
+begin
+  DrawRoundedCornerLine(Self, Points, Pen, Radius);
+end;
+
+procedure TCanvasHelper.GDIRoundedLine(Line: TLine; Pen: TGDIPen);
+begin
+  DrawRoundedLine(Self, Line, Pen);
 end;
 
 procedure TCanvasHelper.GDIRoundRect(RoundRect: TRoundRect; Brush: TGDIBrush; Pen: TGDIPen);
@@ -311,6 +330,49 @@ end;
 procedure TCanvasHelper.GDIGraphicRound(Graphic: TGraphic; Rect: TRect; Round: real);
 begin
   DrawGraphicRound(Self, Graphic, Rect, Round);
+end;
+
+{ TRectHelper }
+
+function TRectHelper.GetBottomLeft: TPoint;
+begin
+  Result := Point(Left, Bottom);
+end;
+
+function TRectHelper.GetTopRight: TPoint;
+begin
+  Result := Point(Right, Top);
+end;
+
+function TRectHelper.Normalised: boolean;
+begin
+  Result := (Top <= Bottom) and (Left <= Right);
+end;
+
+{ TPopupMenuHelper }
+
+procedure TPopupMenuHelper.Popup(P: TPoint);
+begin
+  Popup(P.X, P.Y);
+end;
+
+procedure TPopupMenuHelper.PopupAtMouseCursor;
+begin
+  Popup( Mouse.CursorPos );
+end;
+
+{ TPointHelper }
+
+constructor TPointHelper.FromString(S: string);
+begin
+  const I = S.Split([','], 2);
+  X := I[0].ToInteger;
+  Y := I[1].ToInteger;
+end;
+
+function TPointHelper.ToString: string;
+begin
+  Result := Format('%D,%D', [X, Y]);
 end;
 
 end.

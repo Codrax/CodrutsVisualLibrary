@@ -28,6 +28,7 @@ interface
       function Create(Red, Green, Blue: Byte; Alpha: Byte = 255): CRGBA;
 
       function MakeGDIBrush: TGPSolidBrush;
+      function MakeGDIColor: TGPColor;
       function MakeGDIPen(Width: Single = 1): TGPPen;
 
       function ToColor(Alpha: Byte = 255): TColor;
@@ -454,12 +455,17 @@ end;
 
 function CRGBA.MakeGDIBrush: TGPSolidBrush;
 begin
-  Result := TGPSolidBrush.Create( MakeColor(A, R, G, B) );
+  Result := TGPSolidBrush.Create( MakeGDIColor );
+end;
+
+function CRGBA.MakeGDIColor: TGPColor;
+begin
+  Result := MakeColor(A, R, G, B);
 end;
 
 function CRGBA.MakeGDIPen(Width: Single): TGPPen;
 begin
-  Result := TGPPen.Create( MakeColor(A, R, G, B), Width );
+  Result := TGPPen.Create( MakeGDIColor, Width );
 end;
 
 function CRGBA.ToColor(Alpha: Byte): TColor;

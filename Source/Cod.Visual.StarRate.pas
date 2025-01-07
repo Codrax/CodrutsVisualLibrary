@@ -170,13 +170,15 @@ end;
 
 procedure CStarRate.MouseMove(State: TShiftState; X, Y: integer);
 var
-  Rate: integer;
+  PreviousRating, Rate: integer;
   Changed: boolean;
 begin
   inherited;
 
   if (not FViewOnly) and mouseisdown then
     begin
+      PreviousRating := Rating;
+
       Rate := round(X / Width * FMaxRating);
       Changed := Rate <> Rating;
       Rating := Rate;
@@ -184,7 +186,8 @@ begin
       if Changed and Assigned(OnSelect) then
         OnSelect(Self);
 
-      Paint;
+      if Rating <> PreviousRating then
+        Paint;
     end;
 end;
 
@@ -271,6 +274,10 @@ begin
 
     CopyRect(ActiveRect, overlay.Canvas, ActiveRect);
   end;
+
+  // Free
+  workon.Free;
+  overlay.Free;
 end;
 
 procedure CStarRate.SetMaxRating(const Value: integer);

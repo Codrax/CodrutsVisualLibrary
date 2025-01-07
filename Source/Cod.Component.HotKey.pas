@@ -44,14 +44,14 @@ interface
       LastValue: boolean;
       Componen: TComponent;
 
-    procedure FTimerAct(Sender: TObject);
-    procedure SetEnable(const Value: boolean);
-    function GetKeyCode(text: string): integer;
-    procedure SetShortLegCut(const Value: TShortCut);
-    function GetTNext(text: string): string;
-    procedure SetInterval(const Value: integer);
-    procedure SetNotExecMode(const Value: boolean);
-    function GetOwningForm(Control: TComponent): TForm;
+      procedure FTimerAct(Sender: TObject);
+      procedure SetEnable(const Value: boolean);
+      function GetKeyCode(text: string): integer;
+      procedure SetShortLegCut(const Value: TShortCut);
+      function GetTNext(text: string): string;
+      procedure SetInterval(const Value: integer);
+      procedure SetNotExecMode(const Value: boolean);
+      function GetOwningForm(Control: TComponent): TForm;
 
     published
       property ShortCut: string read FShortCut write FShortCut;
@@ -186,6 +186,8 @@ begin
     if ANSILowerCase(text) = 'down' then Result := 40;
 
     if ANSILowerCase(text) = '/' then Result := 191;
+
+    if ANSILowerCase(text) = 'prntscrn' then Result := VK_SNAPSHOT;
   end;
 
   if (Result = 0) and (text <> '') then

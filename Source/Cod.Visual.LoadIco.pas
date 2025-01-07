@@ -38,6 +38,9 @@ type
       property OnMouseMove;
       property OnClick;
 
+      property Color;
+      property ParentColor;
+
       property ShowHint;
       property Align;
       property Anchors;
@@ -108,15 +111,24 @@ end;
 procedure CLoadAnim.Paint;
 var
   w, h, i,a,b,c,d: integer;
+  Bitmap: TBitMap;
 begin
   inherited;
   if FProportional then if Height < Width then Height := Width else Width := Height;
-                        
 
+  // Create
+  Bitmap := TBitmap.Create(Width, Height);
 
+  // Fill
+  with Bitmap.Canvas do begin
+    Brush.Color := Self.Color;
+    FillRect(ClipRect);
+  end;
+
+  // Draw
   case Animation of
     canimSpinny: begin
-      with canvas do begin
+      with Bitmap.Canvas do begin
         Pen.Width := 2;
         Pen.Color := 12893892;
         Brush.Style := bsClear;
@@ -135,6 +147,10 @@ begin
       end;
     end;
   end;
+
+  // Free
+  Canvas.Draw(0, 0, Bitmap);
+  Bitmap.Free;
 end;
 
 procedure CLoadAnim.SetAnimSpeed(const Value: integer);

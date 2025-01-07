@@ -16,9 +16,12 @@ unit Cod.Math;
 
 interface
   uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, Math,
-  Cod.SysUtils, System.Generics.Collections, Cod.VarHelpers, Cod.StringUtils,
-  Cod.Types;
+  {$IFDEF MSWINDOWS}
+  Windows,
+  {$ENDIF}
+  System.SysUtils, System.Classes, Math, Cod.ArrayHelpers,
+  System.Types, Cod.SysUtils, System.Generics.Collections,
+  Cod.StringUtils, Cod.Types;
 
   // This function gets a string and automaticly calculates any
   // indics such as =time =eq = cell
@@ -39,6 +42,11 @@ interface
   function StringToFloat(str: string): Extended;
   // Better string to float conversion
 
+  // Factorial
+  function Factorial(N: Integer): Int64;
+  // Uses base 10 starting from 0
+  function GetNthPermutation(Base: Integer; X: Integer): TArray<Integer>;
+
   // Number Sequences
   // Fisher-Yates shuffle algorithm
   function GenerateRandomSequence(count: Integer): TArray<Integer>;
@@ -49,8 +57,8 @@ interface
   function EqualApprox(number1, number2: real; span: real = 1): boolean; overload;
   function PercOf(number: int64; percentage: integer): integer;
   function PercOfR(number: Real; percentage: int64): real;
-  function GetNumberRelation(Primary, Secondary: int64): TRelation; overload;
-  function GetNumberRelation(Primary, Secondary: real): TRelation; overload;
+  function GetNumberRelation(Primary, Secondary: int64): TValueRelationship; overload;
+  function GetNumberRelation(Primary, Secondary: real): TValueRelationship; overload;
   {$IFDEF WIN32}
   procedure ConstraintASM(var Number: integer; Min: integer; Max: integer);
   {$ENDIF}
@@ -71,9 +79,13 @@ function GetLocalePeriod: string;
 var
   fs: TFormatSettings;
 begin
+  {$IFDEF MSWINDOWS}
   {$WARN SYMBOL_PLATFORM OFF}
   fs := TFormatSettings.Create(GetThreadLocale());
   {$WARN SYMBOL_PLATFORM ON}
+  {$ELSE}
+  fs := TFormatSettings.Create;
+  {$ENDIF}
   Result := fs.DecimalSeparator;
 end;
 
@@ -129,20 +141,20 @@ begin
   Result := percentage / 100 * number;
 end;
 
-function GetNumberRelation(Primary, Secondary: int64): TRelation;
+function GetNumberRelation(Primary, Secondary: int64): TValueRelationship;
 begin
   Result := GetNumberRelation( real(Primary), real(Secondary) );
 end;
 
-function GetNumberRelation(Primary, Secondary: real): TRelation;
+function GetNumberRelation(Primary, Secondary: real): TValueRelationship;
 begin
   if Primary = Secondary then
-    Result := TRelation.Equal
+    Result := TValueRelationship.Equal
       else
         if Primary > Secondary then
-          Result := TRelation.Bigger
+          Result := TValueRelationship.Greater
             else
-              Result := TRelation.Smaller;
+              Result := TValueRelationship.Less;
 end;
 
 {$IFDEF WIN32}
@@ -239,6 +251,61 @@ begin
       end;
 
   Result := StrToFloat(str);
+end;
+
+function Factorial(N: Integer): Int64;
+var
+  I: Integer;
+  ResultValue: Int64;
+begin
+  if N < 0 then
+    raise Exception.Create('Factorial is undefined for negative numbers.');
+
+  ResultValue := 1; // Initialize value
+  for I := 2 to N do
+    ResultValue := ResultValue * I;
+
+  Result := ResultValue;
+end;
+
+function GetNthPermutation(Base: Integer; X: Integer): TArray<Integer>;
+var
+  Permutation: TArray<Integer>;
+  Used: TArray<Boolean>;
+  AFactorial, Temp, I, J, Index: Integer;
+begin
+  // Initialize the permutation array
+  SetLength(Permutation, Base);
+  SetLength(Used, Base);
+
+  // Calculate the factorial of the base
+  AFactorial := Factorial(Base);
+
+  // Generate the Xth permutation
+  for I := 0 to Base - 1 do
+  begin
+    AFactorial := AFactorial div (Base - I); // Factorial for the current position
+    Index := X div AFactorial;              // Determine which element to pick
+    X := X mod AFactorial;                  // Update X for the next position
+
+    // Find the Index-th unused element
+    Temp := 0;
+    for J := 0 to Base - 1 do
+    begin
+      if not Used[J] then
+      begin
+        if Temp = Index then
+        begin
+          Permutation[I] := J; // Store the chosen element
+          Used[J] := True;        // Mark it as used
+          Break;
+        end;
+        Inc(Temp);
+      end;
+    end;
+  end;
+
+  Result := Permutation;
 end;
 
 function GetParanthStart(from: integer; InText: string; paranthtype: char): integer;

@@ -17,18 +17,18 @@ unit Cod.SysUtils;
 
 interface
   uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Registry, Vcl.Dialogs, Vcl.Forms, Vcl.StdCtrls,
-  Vcl.Styles, Vcl.Themes, UITypes, Types, Winapi.shlobj, Cod.Registry, Math,
-  IOUtils, ActiveX, ComObj, Variants, ShellApi, Cod.ColorUtils,
-  System.TypInfo, Vcl.Imaging.pngimage, PngFunctions, PsApi, Cod.Files, Cod.Types,
-  Cod.StringUtils, Winapi.Wbem, System.ImageList, Cod.MesssageConst, IniFiles,
-  Cod.Windows;
+  {$IFDEF MSWINDOWS}
+  Registry, ShellApi, ActiveX, ComObj, Winapi.shlobj,
+  Cod.Registry, Cod.ColorUtils, Vcl.Imaging.pngimage,
+  Vcl.Graphics, Winapi.Windows, Vcl.Controls, Vcl.Themes, Vcl.Forms,
+  Winapi.Messages,
+  {$ENDIF}
+  System.SysUtils, System.Classes, Types, IOUtils,
+  Variants, System.TypInfo, Cod.MesssageConst, IniFiles;
 
   type
     { If the number of attributes if ever changed, it is required to update the
     write atttributes procedure with the new number in mind!! }
-
     TFileVersionInfo = record
       fCompanyName,
       fFileDescription,
@@ -42,37 +42,58 @@ interface
       fComments: string;
     end;
 
-    TStrInterval = record
-      AStart: integer;
-      AEnd: integer;
-
-      function Length: integer;
-    end;
-
   { Forms }
+  {$IFNDEF CONSOLE}
   procedure CenterFormInForm(form, primaryform: TForm; alsoopen: boolean = false);
   procedure CenterFormOnScreen(form: TForm);
   procedure ChangeMainForm(NewForm: TForm);
   function MouseAboveForm(form: TForm): boolean;
   procedure FormPositionSettings(Form: TForm; FileName: string; Load: boolean;
     Closing: boolean = true);
+  procedure PrepareCustomTitleBar(var TitleBar: TForm; const Background: TColor; Foreground: TColor);
+  procedure OpenFormSystemMenu(Form: TForm);
+  procedure SetFormAllowClose(Form: TForm; Allow: boolean);
+  {$ENDIF}
 
-  { Icons }
-  procedure GetIconStrIcon(IconString: string; var PngImage: TPngImage);
-  procedure GetFileIcon(FileName: string; var PngImage: TPngImage; IconIndex: word = 0);
-  procedure GetFileIconEx(FileName: string; var PngImage: TPngImage; IconIndex: word = 0; SmallIcon: boolean = false);
-  function GetFileIconCount(FileName: string): integer;
-  function GetAllFileIcons(FileName: string): TArray<TPngImage>;
+  { Exceptions }
+  procedure AssertCon(Condition: boolean; Message: string);
 
   { Application }
-  function IsAdministrator: boolean;
-
-  function GetParameter(Index: integer): string;
+  ///  <summary> Get parameter by index </summary>
+  function GetParameter(Index: integer): string; overload; // get parameter by index
+  ///  <summary> Get all parameters as string </summary>
   function GetParameters: string;
+  ///  <summary>
+  ///    Check for a Parameter, takes parameter as "value" without shell prefix, return index position
+  ///  </summary>
+  function FindParameter(Value: string): integer; overload;
+  ///  <summary>
+  ///    Check for a Parameter, takes parameter as "value" without shell prefix
+  ///  </summary>
+  function HasParameter(Value: string): boolean; overload;
+  ///  <summary> Get value of the following param of the requested value </summary>
+  function GetParameterValue(Value: string): string; overload;
+  {$IFDEF POSIX}
+  ///  <summary>
+  ///    Check for a single char Unix parameter, return index position
+  ///  </summary>
+  function FindParameter(Value: char): integer; overload;
+  ///  <summary> Check for a single char Unix parameter </summary>
+  function HasParameter(Value: char): boolean; overload;
+  ///  <summary> Get single char Unix parameter value </summary>
+  function GetParameterValue(Value: char): string; overload;
+  ///  <summary>
+  ///    Check for a Unix Parameter alternative, either string or singlechar, return index position
+  ///  </summary>
+  function FindParameter(Value: string; AltChar: char): integer; overload;
+  ///  <summary> Check for a Unix Parameter alternative, either string or singlechar </summary>
+  function HasParameter(Value: string; AltChar: char): boolean; overload;
+  ///  <summary> Gets the unix parameter, than returns the value </summary>
+  function GetParameterValue(Value: string; AltChar: char): string; overload;
+  {$ENDIF}
 
-  { Components }
+  { Objects }
   procedure CopyObject(ObjFrom, ObjTo: TObject);
-  procedure PrepareCustomTitleBar(var TitleBar: TForm; const Background: TColor; Foreground: TColor);
   procedure ResetPropertyValues(const AObject: TObject);
   procedure SetProperty(const AObject: TObject; PropertyName, NewValue: string); overload;
   procedure SetProperty(const AObject: TObject; PropertyName: string; NewValue: integer); overload;
@@ -82,51 +103,71 @@ interface
   procedure SetBooleanProperty(const AObject: TObject; PropertyName: string; NewValue: boolean);
 
   { File Associations }
+  {$IFDEF MSWINDOWS}
+  procedure RegisterFileType( FileExt: String; FileTypeDescription: String;
+    ICONResourceFileFullPath: String; ApplicationFullPath: String;
+    OnlyForCurrentUser: boolean = true);
   procedure UnregisterFileType(FileExt: String; OnlyForCurrentUser: boolean = true);
   function FileTypeExists(FileExt: String; OnlyForCurrentUser: boolean = true): boolean;
-  function GetFileTypeAssociation(FileExt: String; var ADesc, AIcon: string; OnlyForCurrentUser: boolean = true): string;
-  procedure RegisterFileType( FileExt: String; FileTypeDescription: String; ICONResourceFileFullPath: String; ApplicationFullPath: String; OnlyForCurrentUser: boolean = true);
+  function GetFileTypeAssociation(FileExt: String; var ADesc, AIcon: string;
+    OnlyForCurrentUser: boolean = true): string;
+  {$ENDIF}
 
+  {$IFDEF MSWINDOWS}
   function GetGenericFileType( AExtension: string ): string;
   function GetGenericIconIndex( AExtension: string ): integer;
+  function GetShellFileIcon(const AExtension: string; ALargeIcon: Boolean = true): TIcon;
   function GetGenericFileIcon( AExtension: string; ALargeIcon: boolean = true ): TIcon;
-
-  { Debug }
-  procedure Debug(Value: string);
+  {$ENDIF}
 
   { Shell }
-  procedure ShellRun(Command: string; ShowConsole: boolean; Parameters: string = ''; Administrator: boolean = false; Directory: string = '');
+  {$IFDEF MSWINDOWS}
+  procedure ShellRun(Command: string; Show: boolean; Parameters: string = ''; Administrator: boolean = false; Directory: string = '');
   procedure PowerShellRun(Command: string; ShowConsole: boolean; Administrator: boolean = false; Directory: string = '');
   function PowerShellGetOutput(Command: string; ShowConsole: boolean; WaitFor: boolean = false; WantOutput: boolean = true): TStringList;
   procedure WaitForProgramExecution(CommandLine: string);
-  procedure HighlightItemExplorer(ItemPath: string);
+  function ExecAndWait(const CommandLine: string) : Boolean;
+  {$ENDIF}
+  ///  <summary>
+  ///  Split command into parameter array as in the UNIX string literal standard.
+  ///  </summary>
+  function ParameterSplitting(Command: string): TArray<string>;
 
-  procedure FlashWindowInTaskbar;
+  {$IFNDEF CONSOLE}
   function GetFormMonitorIndex(Form: TForm): integer;
+  {$ENDIF}
+
+  { Paths }
+  procedure ExtractIconData(AFilePath: string; var Path: string; out IconIndex: word);
+  // Same as above, but with checks for if a file contains ","
+  procedure ExtractIconDataEx(AFilePath: string; var Path: string; out IconIndex: word);
 
   { File }
+  {$IFDEF MSWINDOWS}
   function GetAllFileProperties(filename: string; allowempty: boolean = true): TStringList;
   function GetFileProperty(FileName, PropertyName: string): string;
   //External
   function GetAllFileVersionInfo(FileName: string): TFileVersionInfo;
   function GetFileOwner(const AFileName : string) : string;
+  {$ENDIF}
 
   { Misc }
+  {$IFDEF MSWINDOWS}
+  ///  <summary>
+  ///    Check if the UI components are running in the IDE form
+  ///  </summary>
   function IsInIDE: boolean;
+  {$ENDIF}
+
+const
+  PARAM_PREFIX = {$IFDEF MSWINDOWS}'-'{$ELSE}'--'{$ENDIF};
+  {$IFDEF POSIX}
+  PARAM_PREFIX_CHAR = '-';
+  {$ENDIF}
 
 implementation
 
-procedure CenterFormOnScreen(form: TForm);
-begin
-  form.Left := Screen.Width div 2 - form.Width div 2;
-  form.Top := Screen.Height div 2 - form.Height div 2;
-end;
-
-procedure ChangeMainForm(NewForm: TForm);
-begin
-  Pointer((@Application.MainForm)^) := NewForm;
-end;
-
+{$IFNDEF CONSOLE}
 procedure CenterFormInForm(form, primaryform: TForm; alsoopen: boolean);
 begin
   if form.Position <> poDesigned then
@@ -137,6 +178,17 @@ begin
 
   if alsoopen then
     form.Show;
+end;
+
+procedure CenterFormOnScreen(form: TForm);
+begin
+  form.Left := Screen.Width div 2 - form.Width div 2;
+  form.Top := Screen.Height div 2 - form.Height div 2;
+end;
+
+procedure ChangeMainForm(NewForm: TForm);
+begin
+  Pointer((@Application.MainForm)^) := NewForm;
 end;
 
 function MouseAboveForm(form: TForm): boolean;
@@ -176,6 +228,8 @@ begin
           if Load then
             begin
               WindowState := TWindowState.wsNormal;
+              if Form.Position <> poDesigned then
+                Form.Position := poDesigned; // ensure designed
 
               Left := ReadInteger(SECT_DAT, 'Left', Left);
               Top := ReadInteger(SECT_DAT, 'Top', Top);
@@ -225,6 +279,112 @@ begin
     end;
 end;
 
+procedure PrepareCustomTitleBar(var TitleBar: TForm; const Background: TColor; Foreground: TColor);
+var
+  CB, CF, SCB, SCF: integer;
+begin
+  if GetColorSat(BackGround) < 100 then
+    CB := 30
+  else
+    CB := -30;
+
+  if GetColorSat(Foreground) < 100 then
+    CF := 30
+  else
+    CF := -30;
+
+  SCF := CF div 2;
+  SCB := CF div 2;
+
+  with TitleBar.CustomTitleBar do
+    begin
+      BackgroundColor := BackGround;
+      InactiveBackgroundColor := ChangeColorSat(BackGround, CB);
+      ButtonBackgroundColor := BackGround;
+      ButtonHoverBackgroundColor := ChangeColorSat(BackGround, SCB);
+      ButtonInactiveBackgroundColor := ChangeColorSat(BackGround, CB);
+      ButtonPressedBackgroundColor := ChangeColorSat(BackGround, CB);
+
+      ForegroundColor := Foreground;
+      ButtonForegroundColor := Foreground;
+      ButtonHoverForegroundColor := ChangeColorSat(ForeGround, SCF);
+      InactiveForegroundColor := ChangeColorSat(Foreground, CF);
+      ButtonInactiveForegroundColor := ChangeColorSat(Foreground, CF);
+      ButtonPressedForegroundColor := ChangeColorSat(Foreground, CF);
+    end;
+end;
+
+procedure OpenFormSystemMenu(Form: TForm);
+var
+  Handle: HMENU;
+  MousePos: TPoint;
+  cmd: integer;
+function EnableBool(Value: boolean): UINT;
+begin
+  if Value then
+    Result := MF_BYCOMMAND or MF_ENABLED
+  else
+    Result := MF_BYCOMMAND or MF_GRAYED;
+end;
+begin
+  MousePos := Mouse.CursorPos;
+
+  // Get the handle to the system menu
+  Handle := GetSystemMenu(Form.Handle, False);
+
+  // Enable / disable the items
+  EnableMenuItem(Handle, SC_RESTORE,
+    EnableBool((Form.WindowState = TWindowState.wsMaximized) and (biMaximize in Form.BorderIcons))
+    );
+  EnableMenuItem(Handle, SC_MOVE, EnableBool(Form.WindowState <> TWindowState.wsMaximized));
+  EnableMenuItem(Handle, SC_SIZE,
+    EnableBool((Form.WindowState <> TWindowState.wsMaximized) and (Form.BorderStyle in [bsSizeable, bsSizeToolWin]))
+    );
+
+  EnableMenuItem(Handle, SC_MAXIMIZE,
+    EnableBool((Form.WindowState <> TWindowState.wsMaximized) and (biMaximize in Form.BorderIcons) and (Form.BorderStyle in [bsSizeable, bsSingle]))
+  );
+  EnableMenuItem(Handle, SC_MINIMIZE,
+    EnableBool((Form.WindowState <> TWindowState.wsMinimized) and (biMinimize in Form.BorderIcons) and (Form.BorderStyle in [bsSizeable, bsSingle, bsDialog]))
+  );
+
+  // Get CMD
+  cmd := Integer(
+    TrackPopupMenu(Handle, TPM_RETURNCMD or TPM_LEFTALIGN or TPM_TOPALIGN, MousePos.X, MousePos.Y, 0,
+      Form.Handle, nil)
+    );
+
+  // If a valid command is selected, send it to the system for default processing
+  if cmd <> 0 then
+    SendMessage(Form.Handle, WM_SYSCOMMAND, cmd, 0);
+end;
+
+procedure SetFormAllowClose(Form: TForm; Allow: boolean);
+var
+  Handle: HMENU;
+function EnableBool(Value: boolean): UINT;
+begin
+  if Value then
+    Result := MF_BYCOMMAND or MF_ENABLED
+  else
+    Result := MF_BYCOMMAND or MF_GRAYED;
+end;
+begin
+  // Get the handle to the system menu
+  Handle := GetSystemMenu(Form.Handle, False);
+
+  // Set
+  EnableMenuItem(Handle, SC_CLOSE, EnableBool(Allow) );
+end;
+{$ENDIF}
+
+procedure AssertCon(Condition: boolean; Message: string);
+begin
+  if not Condition then
+    raise Exception.Create(Message);
+end;
+
+{$IFDEF MSWINDOWS}
 procedure RegisterFileType(FileExt, FileTypeDescription,
   ICONResourceFileFullPath, ApplicationFullPath: String;
   OnlyForCurrentUser: boolean);
@@ -256,55 +416,24 @@ begin
   SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nil, nil);
 end;
 
-function GetGenericFileType( AExtension: string ): string;
-{ Get file type for an extension }
+procedure UnregisterFileType(FileExt: String;
+  OnlyForCurrentUser: boolean);
 var
-  AInfo: TSHFileInfo;
+  R: TRegistry;
 begin
-  SHGetFileInfo( PChar( AExtension ), FILE_ATTRIBUTE_NORMAL, AInfo, SizeOf( AInfo ),
-    SHGFI_TYPENAME or SHGFI_USEFILEATTRIBUTES );
-  Result := AInfo.szTypeName;
-end;
+  R := TRegistry.Create;
+  try
+    if OnlyForCurrentUser then
+      R.RootKey := HKEY_CURRENT_USER
+    else
+      R.RootKey := HKEY_LOCAL_MACHINE;
 
-function GetGenericIconIndex( AExtension: string ): integer;
-{ Get icon index for an extension type }
-var
-  AInfo: TSHFileInfo;
-begin
-  if SHGetFileInfo( PChar( AExtension ), FILE_ATTRIBUTE_NORMAL, AInfo, SizeOf( AInfo ),
-    SHGFI_SYSICONINDEX or SHGFI_SMALLICON or SHGFI_USEFILEATTRIBUTES ) <> 0 then
-  Result := AInfo.iIcon
-  else
-    Result := -1;
-end;
-
-function GetGenericFileIcon( AExtension: string; ALargeIcon: boolean ): TIcon;
-{ Get icon for an extension }
-var
-  AInfo: TSHFileInfo;
-  AIcon: TIcon;
-  AFlags: integer;
-begin
-  AFlags :=SHGFI_ICON+SHGFI_TYPENAME+SHGFI_USEFILEATTRIBUTES;
-  if ALargeIcon then
-    AFlags := AFlags + SHGFI_LARGEICON
-  else
-    AFlags := AFlags + SHGFI_SMALLICON;
-
-  if SHGetFileInfo( PChar( AExtension ), FILE_ATTRIBUTE_NORMAL, AInfo, SizeOf( AInfo ),
-    AFlags ) <> 0 then
-  begin
-    AIcon := TIcon.Create;
-    try
-      AIcon.Handle := AInfo.hIcon;
-      Result := AIcon;
-    except
-      AIcon.Free;
-      raise;
-    end;
-  end
-  else
-    Result := nil;
+    R.DeleteKey('\Software\Classes\.' + FileExt);
+    R.DeleteKey('\Software\Classes\' + FileExt + 'File');
+  finally
+    R.Free;
+  end;
+  SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nil, nil);
 end;
 
 function FileTypeExists(FileExt: String;
@@ -364,20 +493,90 @@ begin
     R.Free;
   end;
 end;
+{$ENDIF}
 
-procedure FlashWindowInTaskbar;
+{$IFDEF MSWINDOWS}
+function GetGenericFileType( AExtension: string ): string;
+{ Get file type for an extension }
 var
-  Flash: FLASHWINFO;
+  AInfo: TSHFileInfo;
 begin
-  FillChar(Flash, SizeOf(Flash), 0);
-  Flash.cbSize := SizeOf(Flash);
-  Flash.hwnd := Application.Handle;
-  Flash.uCount := 5;
-  Flash.dwTimeOut := 2000;
-  Flash.dwFlags := FLASHW_ALL;
-  FlashWindowEx(Flash);
+  SHGetFileInfo( PChar( AExtension ), FILE_ATTRIBUTE_NORMAL, AInfo, SizeOf( AInfo ),
+    SHGFI_TYPENAME or SHGFI_USEFILEATTRIBUTES );
+  Result := AInfo.szTypeName;
 end;
 
+function GetGenericIconIndex( AExtension: string ): integer;
+{ Get icon index for an extension type }
+var
+  AInfo: TSHFileInfo;
+begin
+  if SHGetFileInfo( PChar( AExtension ), FILE_ATTRIBUTE_NORMAL, AInfo, SizeOf( AInfo ),
+    SHGFI_SYSICONINDEX or SHGFI_SMALLICON or SHGFI_USEFILEATTRIBUTES ) <> 0 then
+  Result := AInfo.iIcon
+  else
+    Result := -1;
+end;
+
+function GetShellFileIcon(const AExtension: string; ALargeIcon: Boolean): TIcon;
+{ This is a work in progress, It should get image thumbnails for video and images }
+var
+  AInfo: TSHFileInfo;
+  AIcon: TIcon;
+  AFlags: Integer;
+begin
+  AFlags := SHGFI_ICON or SHGFI_USEFILEATTRIBUTES or SHGFI_TYPENAME or SHGFI_ICONLOCATION;
+  if ALargeIcon then
+    AFlags := AFlags or SHGFI_LARGEICON
+  else
+    AFlags := AFlags or SHGFI_SMALLICON;
+
+  if SHGetFileInfo(PChar(AExtension), FILE_ATTRIBUTE_NORMAL, AInfo, SizeOf(AInfo), AFlags) <> 0 then
+  begin
+    AIcon := TIcon.Create;
+    try
+      AIcon.Handle := AInfo.hIcon;
+      Result := AIcon;
+    except
+      AIcon.Free;
+      raise;
+    end;
+  end
+  else
+    Result := nil;
+end;
+
+function GetGenericFileIcon( AExtension: string; ALargeIcon: boolean ): TIcon;
+{ Get icon for an extension }
+var
+  AInfo: TSHFileInfo;
+  AIcon: TIcon;
+  AFlags: integer;
+begin
+  AFlags :=SHGFI_ICON+SHGFI_TYPENAME+SHGFI_USEFILEATTRIBUTES;
+  if ALargeIcon then
+    AFlags := AFlags + SHGFI_LARGEICON
+  else
+    AFlags := AFlags + SHGFI_SMALLICON;
+
+  if SHGetFileInfo( PChar( AExtension ), FILE_ATTRIBUTE_NORMAL, AInfo, SizeOf( AInfo ),
+    AFlags ) <> 0 then
+  begin
+    AIcon := TIcon.Create;
+    try
+      AIcon.Handle := AInfo.hIcon;
+      Result := AIcon;
+    except
+      AIcon.Free;
+      raise;
+    end;
+  end
+  else
+    Result := nil;
+end;
+{$ENDIF}
+
+{$IFNDEF CONSOLE}
 function GetFormMonitorIndex(Form: TForm): integer;
 var
   I: Integer;
@@ -394,13 +593,10 @@ begin
     if Screen.Monitors[I].BoundsRect.Contains( CenterPosition ) then
       Exit( Screen.Monitors[I].MonitorNum );
 end;
+{$ENDIF}
 
-procedure Debug(Value: string);
-begin
-  OutPutDebugString( PChar(Value) );
-end;
-
-procedure ShellRun(Command: string; ShowConsole: boolean; Parameters: string; Administrator: boolean; Directory: string);
+{$IFDEF MSWINDOWS}
+procedure ShellRun(Command: string; Show: boolean; Parameters: string; Administrator: boolean; Directory: string);
 var
   OperationType: string;
   Parameter: integer;
@@ -410,7 +606,7 @@ begin
   else
     OperationType := 'open';
 
-  if ShowConsole then
+  if Show then
     Parameter := SW_NORMAL
   else
     Parameter := SW_HIDE;
@@ -490,7 +686,7 @@ begin
         if ShowConsole then
           start.wShowWindow := SW_NORMAL
         else
-          start.wShowWindow := SW_HIDE;
+          start.wShowWindow := SW_HIDE;  // SW_HIDE makes the wait process stuck in a loop!
 
         // Don't forget to set up members of the PROCESS_INFORMATION structure.
         ProcessInfo := Default(TProcessInformation);
@@ -586,49 +782,118 @@ begin
     end;
 end;
 
-procedure HighlightItemExplorer(ItemPath: string);
-begin
-  ShellRun('explorer.exe', true, Format('/select,"%S"', [ItemPath]));
-end;
-
-function IsAdministrator: boolean;
-const
-  SECURITY_NT_AUTHORITY: TSIDIdentifierAuthority =
-    (Value: (0, 0, 0, 0, 0, 5));
-  SECURITY_BUILTIN_DOMAIN_RID = $00000020;
-  DOMAIN_ALIAS_RID_ADMINS = $00000220;
+function ExecAndWait(const CommandLine: string) : Boolean;
 var
-  AdminGroup: PSID;
-  Res: longbool;
+  StartupInfo: TStartupInfo;        // start-up info passed to process
+  ProcessInfo: TProcessInformation; // info about the process
+  ProcessExitCode: DWord;           // process's exit code
 begin
-  // IsUserAdmin from Shell32 also works
-  if AllocateAndInitializeSid(
-    SECURITY_NT_AUTHORITY, 2,
-    SECURITY_BUILTIN_DOMAIN_RID, DOMAIN_ALIAS_RID_ADMINS,
-    0, 0, 0, 0, 0, 0, AdminGroup) then
+  // Set default error result
+  Result := False;
+  // Initialise startup info structure to 0, and record length
+  FillChar(StartupInfo, SizeOf(StartupInfo), 0);
+  StartupInfo.cb := SizeOf(StartupInfo);
+  // Execute application commandline
+  if CreateProcess(nil, PChar(CommandLine),
+    nil, nil, False, 0, nil, nil,
+    StartupInfo, ProcessInfo) then
   begin
     try
-      CheckTokenMembership(0, AdminGroup, Res);
-      Result := Res;
+      // Now wait for application to complete
+      if WaitForSingleObject(ProcessInfo.hProcess, INFINITE)
+        = WAIT_OBJECT_0 then
+        // It's completed - get its exit code
+        if GetExitCodeProcess(ProcessInfo.hProcess,
+          ProcessExitCode) then
+          // Check exit code is zero => successful completion
+          if ProcessExitCode = 0 then
+            Result := True;
     finally
-      FreeSid(AdminGroup);
+      // Tidy up
+      CloseHandle(ProcessInfo.hProcess);
+      CloseHandle(ProcessInfo.hThread);
     end;
-  end
-  else
-    Result := False;
+  end;
+end;
+{$ENDIF}
+
+function ParameterSplitting(Command: string): TArray<string>;
+var
+  P: integer;
+  Position: integer;
+
+  LayerDoubleType: boolean;
+  TrimSize: integer;
+
+procedure Cut;
+begin
+  // New entry
+  if Position > 0 then begin
+    const Index = Length(Result);
+    SetLength(Result, Index+1);
+    Result[Index] := Command.Substring(TrimSize, Position-TrimSize);
+
+    if LayerDoubleType then
+      Result[Index] := Result[Index].Replace('\"', '"');
+  end;
+
+  // Remove
+  Command := Command.Substring(Position+1); // exclude char
+
+  // Move
+  Position := 0;
+end;
+function CalculateLiteral(Character: char): boolean;
+var
+  Finalised: boolean;
+begin
+  Result := false;
+  if Command.Chars[0] = Character then begin
+    P := 0;
+    repeat
+      P := Command.IndexOf(Character, P+1);
+      Finalised := (P=-1) or (Character = #39) or (Command.Chars[P-1] <> '\');
+    until Finalised;
+
+    // Found suited
+    if P <> -1 then begin
+      LayerDoubleType := Character = '"';
+
+      Position := P;
+      TrimSize := 1;
+      Result := true;
+    end;
+  end;
+end;
+begin
+  Result := [];
+  repeat
+    TrimSize := 0;
+    LayerDoubleType := false;
+
+    // Get next space
+    Position := Command.IndexOf(' ');
+    if Position = -1 then
+      Position := Command.Length;
+
+    // Calculate if is string literal
+    if not CalculateLiteral('"') then
+      CalculateLiteral(#39);
+
+    // Cut data
+    Cut;
+  until Command = '';
 end;
 
 function GetParameter(Index: integer): string;
 begin
   Result := ParamStr(Index);
 
+  {$IFDEF MSWINDOWS}
   // Fix WinNT
   if (Result[1] = '/') then
     Result[1] := '-';
-
-  // Caps for parameter
-  if (Result[1] = '/') then
-    Result := AnsiLowerCase( Result );
+  {$ENDIF}
 end;
 
 function GetParameters: string;
@@ -651,113 +916,94 @@ begin
     end;
 end;
 
-procedure GetIconStrIcon(IconString: string; var PngImage: TPngImage);
+function FindParameter(Value: string): integer;
 var
-  ic: TIcon;
-  FileName: string;
-  IconIndex: word;
-  Sep: integer;
+  S: string;
 begin
-  if TFile.Exists(IconString) then
+  Result := -1;
+  for var I := 1 to ParamCount do
     begin
-      IconIndex := 0;
-      FileName := IconString;
-    end
-  else
-    begin
-      Sep := IconString.LastIndexOf(',');
-      FileName := Copy(IconString, 1, Sep);
-      IconIndex := Copy(IconString, Sep+2, Length(IconString)).ToInteger;
-    end;
+      S := GetParameter(I);
+      if (Length(S) < Length(PARAM_PREFIX)+1) or (Copy(S, 1, Length(PARAM_PREFIX)) <> PARAM_PREFIX) then
+        Continue;
 
-  // Get TIcon
-  ic := TIcon.Create;
-  try
-    ic.Handle := ExtractAssociatedIcon(HInstance, PChar(FileName), IconIndex);
-    ic.Transparent := true;
+      // Remove prefix
+      S := S.Remove(0, Length(PARAM_PREFIX));
+      {$IFDEF MSWINDOWS}
+      // Ignore casing
+      S := Lowercase(S);
+      {$ENDIF}
 
-    // Convert to PNG
-    ConvertToPNG(ic, PngImage);
-  finally
-    ic.Free;
-  end;
-end;
-
-procedure GetFileIcon(FileName: string; var PngImage: TPngImage; IconIndex: word);
-var
-  ic: TIcon;
-begin
-  // Get TIcon
-  ic := TIcon.Create;
-  try
-    ic.Handle := ExtractAssociatedIcon(HInstance, PChar(FileName), IconIndex);
-    ic.Transparent := true;
-
-    // Convert to PNG
-    ConvertToPNG(ic, PngImage);
-  finally
-    ic.Free;
-  end;
-end;
-
-procedure GetFileIconEx(FileName: string; var PngImage: TPngImage; IconIndex: word;
-  SmallIcon: boolean);
-var
-  ic: TIcon;
-  SHFileInfo: TSHFileInfo;
-  Flags: Cardinal;
-begin
-  Flags := SHGFI_ICON or SHGFI_USEFILEATTRIBUTES;
-  if SmallIcon then
-    Flags := Flags or SHGFI_SMALLICON
-  else
-    Flags := Flags or SHGFI_LARGEICON;
-
-  SHGetFileInfo(PChar(FileName), 0, SHFileInfo, SizeOf(TSHFileInfo),
-    Flags);
-
-  // Get TIcon
-  ic := TIcon.Create;
-  try
-    ic.Handle := SHFileInfo.hIcon;;
-    ic.Transparent := true;
-
-    // Convert to PNG
-    PngImage := TPngImage.Create;
-
-    ConvertToPNG(ic, PngImage);
-  finally
-    ic.Free;
-
-  end;
-end;
-
-function GetFileIconCount(FileName: string): integer;
-begin
-  Result := ExtractIcon(0, PChar(FileName), Cardinal(-1));
-end;
-
-function GetAllFileIcons(FileName: string): TArray<TPngImage>;
-var
-  cnt: integer;
-  I: Integer;
-begin
-  // Get Count
-  cnt := GetFileIconCount(FileName);
-
-  SetLength(Result, cnt);
-
-  for I := 0 to cnt - 1 do
-    begin
-      Result[I] := TPngImage.Create;
-
-      try
-        GetFileIcon(FileName, Result[I], I);
-      except
-        // Invalid icon handle
-      end;
+      // Check for equalitry
+      if S = Value then
+        Exit( I );
     end;
 end;
+
+function HasParameter(Value: string): boolean; overload;
+begin
+  Result := FindParameter( Value ) <> -1;
+end;
+
+function GetParameterValue(Value: string): string; overload;
+begin
+  const Index = FindParameter( Value );
+  Result := GetParameter(Index+1);
+end;
+
+{$IFDEF POSIX}
+function FindParameter(Value: char): integer;
+var
+  S: string;
+begin
+  Result := -1;
+  for var I := 1 to ParamCount do
+    begin
+      S := GetParameter(I);
+      if (Length(S) < Length(PARAM_PREFIX_CHAR)+1)
+        or (Copy(S, 1, Length(PARAM_PREFIX_CHAR)) <> PARAM_PREFIX_CHAR)
+        or (Copy(S, 1, Length(PARAM_PREFIX)) = PARAM_PREFIX) then
+        Continue;
+
+      // Remove prefix
+      S := S.Remove(0, Length(PARAM_PREFIX_CHAR));
+
+      // Check for char in list of chars
+      if S.IndexOf( Value ) <> -1 then
+        Exit( I );
+    end;
+end;
+
+function HasParameter(Value: char): boolean; overload;
+begin
+  Result := FindParameter( Value ) <> -1;
+end;
+
+function GetParameterValue(Value: char): string; overload;
+begin
+  const Index = FindParameter( Value );
+  Result := GetParameter(Index+1);
+end;
+
+function FindParameter(Value: string; AltChar: char): integer;
+begin
+  Result := FindParameter( Value );
+  if Result <> -1 then
+    Exit;
+  Result := FindParameter( AltChar );
+end;
+
+function HasParameter(Value: string; AltChar: char): boolean; overload;
+begin
+  Result := FindParameter( Value, AltChar ) <> -1;
+end;
+
+function GetParameterValue(Value: string; AltChar: char): string; overload;
+begin
+  const Index = FindParameter( Value, AltChar );
+  Result := GetParameter(Index+1);
+end;
+{$ENDIF}
 
 procedure CopyObject(ObjFrom, ObjTo: TObject);
   var
@@ -825,41 +1071,6 @@ end
 finally
   FreeMem(PropInfos, Count * SizeOf(PPropInfo));
 end;
-end;
-
-procedure PrepareCustomTitleBar(var TitleBar: TForm; const Background: TColor; Foreground: TColor);
-var
-  CB, CF, SCB, SCF: integer;
-begin
-  if GetColorSat(BackGround) < 100 then
-    CB := 30
-  else
-    CB := -30;
-
-  if GetColorSat(Foreground) < 100 then
-    CF := 30
-  else
-    CF := -30;
-
-  SCF := CF div 2;
-  SCB := CF div 2;
-
-  with TitleBar.CustomTitleBar do
-    begin
-      BackgroundColor := BackGround;
-      InactiveBackgroundColor := ChangeColorSat(BackGround, CB);
-      ButtonBackgroundColor := BackGround;
-      ButtonHoverBackgroundColor := ChangeColorSat(BackGround, SCB);
-      ButtonInactiveBackgroundColor := ChangeColorSat(BackGround, CB);
-      ButtonPressedBackgroundColor := ChangeColorSat(BackGround, CB);
-
-      ForegroundColor := Foreground;
-      ButtonForegroundColor := Foreground;
-      ButtonHoverForegroundColor := ChangeColorSat(ForeGround, SCF);
-      InactiveForegroundColor := ChangeColorSat(Foreground, CF);
-      ButtonInactiveForegroundColor := ChangeColorSat(Foreground, CF);
-      ButtonPressedForegroundColor := ChangeColorSat(Foreground, CF);
-    end;
 end;
 
 procedure ResetPropertyValues(const AObject: TObject);
@@ -1037,6 +1248,7 @@ begin
   end;
 end;
 
+{$IFDEF MSWINDOWS}
 function IsInIDE: boolean;
 begin
   if TStyleManager.ActiveStyle.Name = 'Mountain_Mist' then
@@ -1044,28 +1256,48 @@ begin
   else
     Result := false;
 end;
+{$ENDIF}
 
-procedure UnregisterFileType(FileExt: String;
-  OnlyForCurrentUser: boolean);
+procedure ExtractIconData(AFilePath: string; var Path: string; out IconIndex: word);
 var
-  R: TRegistry;
-begin
-  R := TRegistry.Create;
-  try
-    if OnlyForCurrentUser then
-      R.RootKey := HKEY_CURRENT_USER
-    else
-      R.RootKey := HKEY_LOCAL_MACHINE;
+  Directory: string;
+  FileName: string;
 
-    R.DeleteKey('\Software\Classes\.' + FileExt);
-    R.DeleteKey('\Software\Classes\' + FileExt + 'File');
-  finally
-    R.Free;
+  Index: integer;
+  O: integer;
+begin
+  FileName := ExtractFileName(AFilePath);
+
+  // Extract position
+  Index := FileName.LastIndexOf(',');
+
+  // Index embedeed
+  if (Index = -1) or not TryStrToInt(FileName.Substring(Index+1).Replace(' ', ''), O) then begin
+    Path := AFilePath;
+    IconIndex := 0;
+    Exit;
   end;
-  SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nil, nil);
+  IconIndex := O;
+
+  // Remove rest
+  Directory := ExtractFileDir(AFilePath);
+  if Directory <> '' then
+    Directory := IncludeTrailingPathDelimiter(Directory);
+  Path := Directory + FileName.Substring(0, Index); // I is the position, so no need for -1
 end;
 
-{File}
+procedure ExtractIconDataEx(AFilePath: string; var Path: string; out IconIndex: word);
+begin
+  // Load
+  if TFile.Exists(AFilePath) then begin
+    Path := AFilePath;
+    IconIndex := 0;
+  end
+    else
+      ExtractIconData(AFilePath, Path, IconIndex);
+end;
+
+{$IFDEF MSWINDOWS}
 function GetAllFileProperties(filename: string; allowempty: boolean = true): TStringList;
 var
   Shell : Variant;
@@ -1213,12 +1445,6 @@ begin;
   if LEnumerator.Next(1, LObject, iValue) = 0 then
      Result := string(LObject.AccountName);   //
 end;
-
-{ TStrInterval }
-
-function TStrInterval.Length: integer;
-begin
-  Result := AEnd - AStart;
-end;
+{$ENDIF}
 
 end.

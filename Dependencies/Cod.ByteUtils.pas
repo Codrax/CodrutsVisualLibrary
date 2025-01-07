@@ -16,12 +16,15 @@ unit Cod.ByteUtils;
 interface
   uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, IOUTils,
-  Cod.Types, Cod.StringUtils;
+  Cod.Types, Cod.StringUtils, Cod.MesssageConst;
 
   function GetFileBytes(FileName: string): TArray<Byte>;
   function GetFileBytesString(FileName: string; FirstCount: integer = -1): TArray<string>;
 
   function ReadFileSignature(FileName: string): TFileType;
+
+  function GetFileTypeDefaultExt(FileType: TFileType): string; (* Do not localise *)
+  function GetFileTypeDescription(FileType: TFileType): string;
 
 implementation
 
@@ -52,6 +55,93 @@ begin
     Result[I] := DecToHex( Bytes[I] );
 end;
 
+function GetFileTypeDefaultExt(FileType: TFileType): string;
+begin
+  case FileType of
+    TFileType.Text: Result := 'txt';
+
+    TFileType.BMP: Result := 'bmp';
+    TFileType.PNG: Result := 'png';
+    TFileType.JPEG: Result := 'jpeg';
+    TFileType.GIF: Result := 'gif';
+    TFileType.HEIC: Result := 'heif';
+    TFileType.TIFF: Result := 'tiff';
+
+    TFileType.MP3: Result := 'mp3';
+    TFileType.MP4: Result := 'mp4';
+    TFileType.MKV: Result := 'mkv';
+    TFileType.FLAC: Result := 'flac';
+    TFileType.MDI: Result := 'mdi';
+    TFileType.OGG: Result := 'ogg';
+    TFileType.SND: Result := 'snd';
+
+    TFileType.M3U8: Result := 'm3u8';
+
+    TFileType.EXE: Result := 'exe';
+    TFileType.MSI: Result := 'msi';
+
+    TFileType.Zip: Result := 'zip';
+    TFileType.GZip: Result := 'gzip';
+    TFileType.Zip7: Result := '7z';
+    TFileType.Cabinet: Result := 'cab';
+    TFileType.TAR: Result := 'tar';
+    TFileType.RAR: Result := 'rar';
+    TFileType.LZIP: Result := 'lzip';
+    TFileType.ISO: Result := 'iso';
+
+    TFileType.PDF: Result := 'pdf';
+
+    TFileType.HLP: Result := 'hlp';
+    TFileType.CHM: Result := 'chm';
+
+    else Result := STRING_UNKNOWN;
+  end;
+
+end;
+
+function GetFileTypeDescription(FileType: TFileType): string;
+begin
+  case FileType of
+    TFileType.Text: Result := 'Text document';
+
+    TFileType.BMP: Result := 'Bitmap';
+    TFileType.PNG: Result := 'Portable Network Graphic';
+    TFileType.JPEG: Result := 'Joint Photography Experts Group';
+    TFileType.GIF: Result := 'Graphics Interchange Format';
+    TFileType.HEIC: Result := 'High Efficency Image Codec';
+    TFileType.TIFF: Result := 'Tagged Image File Format';
+
+    TFileType.MP3: Result := 'MPEG Layer-3';
+    TFileType.MP4: Result := 'MPEG Layer-4';
+    TFileType.MKV: Result := 'Matroska Video Container';
+    TFileType.FLAC: Result := 'Free Lossless Audio Codec';
+    TFileType.MDI: Result := 'MDI';
+    TFileType.OGG: Result := 'OGG Vorbis';
+    TFileType.SND: Result := 'Sound';
+
+    TFileType.M3U8: Result := 'Text Playlist file';
+
+    TFileType.EXE: Result := 'Executable';
+    TFileType.MSI: Result := 'Microsoft Installer';
+
+    TFileType.Zip: Result := 'Zipped Archive';
+    TFileType.GZip: Result := 'GZipped Archive';
+    TFileType.Zip7: Result := '7Zip Archive';
+    TFileType.Cabinet: Result := 'Windows Cabinet Archive';
+    TFileType.TAR: Result := 'Tarred Archive';
+    TFileType.RAR: Result := 'RAR Archive';
+    TFileType.LZIP: Result := 'LZIP Archive';
+    TFileType.ISO: Result := 'Disk Image';
+
+    TFileType.PDF: Result := 'Portable Document Format';
+
+    TFileType.HLP: Result := 'Windows Help File';
+    TFileType.CHM: Result := 'Windows Help File';
+
+    else Result := STRING_UNKNOWN;
+  end;
+end;
+
 function ReadFileSignature(FileName: string): TFileType;
 const
   MAX_READ_BUFF = 16;
@@ -66,7 +156,12 @@ const
   TIFF_SIGN: TArray<string> = ['49 49 2A 00', '4D 4D 00 2A'];
 
   MP3_SIGN: TArray<string> = ['49 44 33', 'FF FB', 'FF F3', 'FF F2'];
-  MP4_SIGN: TArray<string> = [FTYP + '69 73 6F 6D'];
+  MP4_SIGN: TArray<TArray<string>> = [
+    [FTYP + '69 73 6F 6D'], // ftypisom (ISO Base Media file (MPEG-4))
+    [FTYP + '4D 53 4E 56'], // ftypMSNV MPEG-4 video file
+    [FTYP + '6D 70 34 32']  // ftypmp42
+    ];
+  MKV_SIGN: TArray<string> = ['1A 45 DF A3'];
   FLAC_SIGN: TArray<string> = ['66 4C 61 43'];
   MDI_SIGN: TArray<string> = ['4D 54 68 64'];
   OGG_SIGN: TArray<string> = ['4F 67 67 53'];
@@ -150,8 +245,12 @@ begin
   if HasSignature(HEX, MP3_SIGN) then
     Exit( TFileType.MP3 );
 
-  if HasSignature(StrRemove(HEX, 1, 8), MP4_SIGN) then
-    Exit( TFileType.MP4 );
+  for I := 0 to High(MP4_SIGN) do
+    if HasSignature(StrRemove(HEX, 1, 8), MP4_SIGN[I]) then
+      Exit( TFileType.MP4 );
+
+  if HasSignature(HEX, MKV_SIGN) then
+    Exit( TFileType.MKV );
 
   if HasSignature(HEX, FLAC_SIGN) then
     Exit( TFileType.Flac );

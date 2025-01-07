@@ -128,7 +128,7 @@ type
   end;
 
   procedure GetWallpaper;
-  procedure GetWallpaperEx;
+  //procedure GetWallpaperEx;
   procedure GetBlurredScreen(darkmode: boolean);
   function GetWallpaperName(ScreenIndex: integer; TranscodedDefault: boolean = false): string;
   function GetWallpaperSize: integer;
@@ -193,14 +193,14 @@ end;
 function GetWallpaperName(ScreenIndex: integer; TranscodedDefault: boolean): string;
 begin
   if NTKernelVersion <= 6.1 then
-    Result := GetUserShellLocation(shlAppData) + '\Microsoft\Windows\Themes\TranscodedWallpaper.jpg'
+    Result := GetUserShellLocation(TUserShellLocation.AppData) + '\Microsoft\Windows\Themes\TranscodedWallpaper.jpg'
   else
     begin
-      Result := GetUserShellLocation(shlAppData) + '\Microsoft\Windows\Themes\Transcoded_' +
+      Result := GetUserShellLocation(TUserShellLocation.AppData) + '\Microsoft\Windows\Themes\Transcoded_' +
         IntToStrIncludePrefixZeros(ScreenIndex, 3);
 
       if TranscodedDefault or not TFile.Exists(Result) then
-        Result := GetUserShellLocation(shlAppData) + '\Microsoft\Windows\Themes\TranscodedWallpaper';
+        Result := GetUserShellLocation(TUserShellLocation.AppData) + '\Microsoft\Windows\Themes\TranscodedWallpaper';
     end;
 end;
 
@@ -236,7 +236,7 @@ begin
   WorkingAP := false;
 end;
 
-procedure GetWallpaperEx;
+{procedure GetWallpaperEx;
 var
   Filename: string;
 
@@ -370,7 +370,7 @@ begin
 
   // Finish Work
   WorkingAP := false;
-end;
+end; }
 
 procedure GetBlurredScreen(darkmode: boolean);
 begin

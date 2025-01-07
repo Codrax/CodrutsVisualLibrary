@@ -16,213 +16,310 @@ unit Cod.Types;
 {$SCOPEDENUMS ON }
 
 interface
-  uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes,
-  Vcl.Graphics, Variants, Vcl.Clipbrd, IOUtils, Math, Types, DateUtils;
+uses
+  System.SysUtils, System.Classes, System.Generics.Collections,
+  System.Generics.Defaults, Variants, IOUtils, Math, Types, DateUtils;
 
-  type
-    // Cardinals
-    TCorners = (TopLeft, TopRight, BottomLeft, BottomRight);
+type
+  // Cardinals
+  TCorners = (TopLeft, TopRight, BottomLeft, BottomRight);
 
-    TRelation = (Smaller, Equal, Bigger);
+  TLayout = (Beginning, Center, Ending);
 
-    TLayout = (Beginning, Center, Ending);
+  TFileType = (Unknown,
+    Text, // Default
+    BMP, // Bitmap
+    PNG, // Portable Network Graphic
+    JPEG, // Joint Photography Experts Group
+    GIF, // Graphics Interchange Format
+    HEIC, // High Efficency Image Codec
+    TIFF, // Tagged Image File Format
+    MP3, // MPEG Layer-3
+    MP4, // MPEG Layer-4
+    MKV, // Matroska Container
+    FLAC, // Free lossless audio codec
+    MDI, // MDI
+    OGG, // OGG
+    SND, // Sound
+    M3U8, // Text Playlist file
+    EXE, MSI, // Executable
+    Zip, GZip, Zip7, Cabinet, TAR, RAR, LZIP, ISO, // Zipped containers
+    PDF, // Portable document format
+    HLP, CHM // Windows help file
+    );
 
-    TFileType = (Text, BMP, PNG, JPEG, GIF, HEIC, TIFF, MP3, MP4, Flac, MDI,
-    OGG, SND, M3U8, EXE, MSI, Zip, GZip, Zip7, Cabinet, TAR, RAR, LZIP, ISO,
-    PDF, HLP, CHM);
+  // Switch for any variabile type
+  TSwitch<T> = class
+    type
+    TCase = record
+      Values: TArray<T>;
+      CallBack: TProc;
 
-    // Graphic ans Canvas
-    TRoundRect = record
-      public
-        Rect: TRect;
-
-        RoundTL,
-        RoundTR,
-        RoundBL,
-        RoundBR: integer;
-
-        Corners: TCorners;
-
-        function Left: integer;
-        function Right: integer;
-        function Top: integer;
-        function Bottom: integer;
-        function TopLeft: TPoint;
-        function BottomRight: TPoint;
-        function Height: integer;
-        function Width: integer;
-
-        procedure Offset(const DX, DY: Integer);
-
-        procedure SetRoundness(Value: integer);
-        function GetRoundness: integer;
-
-        function RoundX: integer;
-        function RoundY: integer;
-
-        constructor Create(TopLeft, BottomRight: TPoint; Rnd: integer); overload;
-        constructor Create(SRect: TRect; Rnd: integer); overload;
-        constructor Create(Left, Top, Right, Bottom: integer; Rnd: integer); overload;
+      procedure Execute;
     end;
 
-    TLine = record
-      Point1: TPoint;
-      Point2: TPoint;
+    // Make
+    class function Option(Value: T; Call: TProc): TCase; overload;
+    class function Option(Values: TArray<T>; Call: TProc): TCase; overload;
 
-      constructor Create(P1, P2: TPoint);
+    // Switch
+    class procedure Switch(Value: T; Cases: TArray<TCase>); overload;
+    class procedure Switch(Value: T; Cases: TArray<TCase>; Default: TProc); overload;
+  end;
 
-      procedure OffSet(const DX, DY: Integer);
+  // Type helper for any
+  TType<T> = class(TObject)
+  public
+    class function IfElse(Condition: boolean; IfTrue: T; IfFalse: T): T;
+    class procedure Switch(var A, B: T);
+    class function Compare(var A, B: T): TValueRelationship;
+  end;
 
-      function Rect: TRect;
-      function GetHeight: integer;
-      function GetWidth: integer;
+  // Const
+  TValueRelationshipHelper = record helper for TValueRelationship
+    const
+      Less = LessThanValue;
+      Equal = EqualsValue;
+      Greater = GreaterThanValue;
 
-      function Center: TPoint;
-    end;
+      function IsLess: boolean;
+      function IsLessOrEqual: boolean;
+      function IsEqual: boolean;
+      function IsGreater: boolean;
+      function IsGreaterOrEqual: boolean;
+  end;
 
-    TLineF = record
-      Point1: TPointF;
-      Point2: TPointF;
+  // Graphic ans Canvas
+  TPoints = TArray<TPoint>;
+  TPointsF = TArray<TPointF>;
 
-      constructor Create(P1, P2: TPointF);
+  TRoundRect = record
+    public
+      Rect: TRect;
 
-      procedure OffSet(const DX, DY: single);
+      RoundTL,
+      RoundTR,
+      RoundBL,
+      RoundBR: integer;
 
-      function Rect: TRectF;
-      function GetHeight: single;
-      function GetWidth: single;
-
-      function Center: TPointF;
-    end;
-
-    T4PointPolygon = record
-      Point: array[1..4] of TPoint;
-
-      constructor Create(P1, P2, P3, P4: TPoint);
-
-      function Center: TPoint;
+      Corners: TCorners;
 
       function Left: integer;
       function Right: integer;
       function Top: integer;
       function Bottom: integer;
+      function TopLeft: TPoint;
+      function BottomRight: TPoint;
+      function Height: integer;
+      function Width: integer;
 
-      procedure Offset(X, Y: integer); overload;
-      procedure Offset(By: TPoint); overload;
-      procedure Rotate(Degrees: real);
+      procedure Offset(const DX, DY: Integer);
 
-      function ToRect: TRect;
-    end;
+      procedure SetRoundness(Value: integer);
+      function GetRoundness: integer;
 
-    // Math & Array
-    TIntegerList = class;
+      function RoundX: integer;
+      function RoundY: integer;
 
-    TIntegerListSortCompare = function(List: TIntegerList; Index1, Index2: Integer): Integer;
+      constructor Create(TopLeft, BottomRight: TPoint; Rnd: integer); overload;
+      constructor Create(SRect: TRect; Rnd: integer); overload;
+      constructor Create(Left, Top, Right, Bottom: integer; Rnd: integer); overload;
+  end;
 
-    TIntegerList = class(TObject)
-    private
-      FList : TList;
-      FDuplicates : TDuplicates;
-      FSorted: Boolean;
+  TLine = record
+    Point1: TPoint;
+    Point2: TPoint;
 
-      function GetItems(Index: Integer): Integer;
-      procedure SetItems(Index: Integer; const Value: Integer);
-      function GetCapacity: Integer;
-      function GetCount: Integer;
-      procedure SetCapacity(const Value: Integer);
-      procedure SetCount(const Value: Integer);
-      procedure SetSorted(const Value: Boolean);
-      function GetHigh: Integer;
+    constructor Create(P1, P2: TPoint);
 
-    protected
-      procedure Sort; virtual;
-      procedure QuickSort(L, R: Integer; SCompare: TIntegerListSortCompare);
+    procedure OffSet(const DX, DY: Integer);
 
-    public
-      constructor Create;
-      destructor Destroy; override;
+    function Points: TPoints;
 
-      function Add(Item: Integer) : Integer;
-      procedure Insert(Index, Item: Integer);
+    function Rect: TRect;
+    function GetHeight: integer;
+    function GetWidth: integer;
 
-      function First() : Integer;
-      function Last() : Integer;
+    function Length: single;
+    function Angle: single;
 
-      function StringContents: string;
-      procedure LoadFromString(AString: string; Separator: string = ',');
+    function Center: TPoint;
+  end;
 
-      procedure Clear;
-      procedure Delete(Index: Integer);
+  TLineF = record
+    Point1: TPointF;
+    Point2: TPointF;
 
-      function IndexOf(const Value: integer): integer;
-      function Find(aValue : Integer; var Index: Integer): Boolean; virtual;
+    constructor Create(P1, P2: TPointF);
 
-      procedure Exchange(Index1, Index2: Integer);
-      procedure Move(CurIndex, NewIndex: Integer);
-      procedure Pack;
+    procedure OffSet(const DX, DY: single);
 
-      property Capacity: Integer read GetCapacity write SetCapacity;
-      property Count: Integer read GetCount write SetCount;
-      property High: Integer read GetHigh;
+    function Rect: TRectF;
+    function GetHeight: single;
+    function GetWidth: single;
 
-      property Duplicates: TDuplicates read FDuplicates write FDuplicates;
+    function Length: single;
+    function Angle: single;
 
-      property Items[Index: Integer]: Integer read GetItems write SetItems; default;
+    function Center: TPointF;
+  end;
 
-      property Sorted : Boolean read FSorted write SetSorted;
-    end;
+  T4PointPolygon = record
+    Point: array[1..4] of TPoint;
 
-  // Types
-  function MakeRoundRect(SRect: TRect; Rnd: integer): TRoundRect; overload;
-  function MakeRoundRect(SRect: TRect; RndX, RndY: integer): TRoundRect; overload;
-  function MakeRoundRect(X1, Y1, X2, Y2: integer; Rnd: integer): TRoundRect; overload;
+    constructor Create(P1, P2, P3, P4: TPoint);
 
-  function Line(Point1, Point2: TPoint): TLine; overload;
-  function Line(X1, Y1, X2, Y2: integer): TLine; overload;
+    function Center: TPoint;
 
-  function CompareItems(Primary, Secondary: string): TRelation; overload;
-  function CompareItems(Primary, Secondary: integer): TRelation; overload;
-  function CompareItems(Primary, Secondary: real): TRelation; overload;
-  function CompareItems(Primary, Secondary: TDateTime): TRelation; overload;
+    function Left: integer;
+    function Right: integer;
+    function Top: integer;
+    function Bottom: integer;
 
-  // Utilities
-  function PointOnLine(X, Y, x1, y1, x2, y2, d: Integer): Boolean;
+    procedure Offset(X, Y: integer); overload;
+    procedure Offset(By: TPoint); overload;
+    procedure Rotate(Degrees: real);
 
-  { Rectangles }
-  function GetValidRect(Point1, Point2: TPoint): TRect; overload;
-  function GetValidRect(Points: TArray<TPoint>): TRect; overload;
-  function GetValidRect(Rect: TRect): TRect; overload;
-  procedure CenterRectInRect(var ARect: TRect; const ParentRect: TRect);
-  procedure CenterRectAtPoint(var ARect: TRect; const APoint: TPoint);
-  function PointInRect(Point: TPoint; Rect: TRect): boolean;
-  procedure ContainRectInRect(var ARect: TRect; const ParentRect: TRect);
+    function ToRect: TRect;
+  end;
 
-  { Points }
-  function SetPositionAroundPoint(Point: TPoint; Center: TPoint; degree: real; customradius: real = -1): TPoint;
-  function PointAroundCenter(Center: TPoint; degree: real; customradius: real = -1): TPoint;
-  function RotatePointAroundPoint(APoint: TPoint; ACenter: TPoint; ARotateDegree: real; ACustomRadius: real = -1): TPoint;
-  function PointAngle(APoint: TPoint; ACenter: TPoint; offset: integer = 0): integer;
+  // Rects
+  TRectLayoutContentFill = (None, Stretch, Fill, Fit, SelfProportion, ParentProportion);
+  TRectLayoutTileFlag = (ExtendX, ExtendY);
+  TRectLayoutTileFlags = set of TRectLayoutTileFlag;
+  TRectLayout = record
+    LayoutHorizontal: TLayout;
+    LayoutVertical: TLayout;
 
-  // Conversion Functions
-  function StringToBoolean(str: string): Boolean;
-  function BooleanToString(value: boolean): String;
-  function BooleanToYesNo(value: boolean): String;
-  function IconToBitmap(icon: TIcon): TBitMap;
-  function IntToStrIncludePrefixZeros(Value: integer; NumbersCount: integer): string;
+    CenterDivisor: TSizeF;
+    ProportionScale: TSizeF;
 
-  function DecToHex(Dec: int64): string;
-  function HexToDec(Hex: string): int64;
+    ContentFill: TRectLayoutContentFill;
+    Tile: boolean;
+    TileFlags: TRectLayoutTileFlags;
 
-  { Arrays }
-  function InArray(Value: integer; arrayitem: array of integer): integer; overload;
-  function InArray(Value: string; arrayitem: array of string): integer; overload;
-  procedure ShuffleArray(var arr: TArray<Integer>);
-  procedure ArrayAdd(Data: string; var AArray: TArray<string>; CheckDuplicate: boolean = false);
-  procedure ArrayRemove(Data: string; var AArray: TArray<string>; RemoveAll: boolean = true);
+    MarginTile: integer;
+    MarginParent: integer;
+    MarginSelf: integer;
+
+    class function New: TRectLayout; static;
+  end;
+
+  // Math & Array
+  TIntegerList = class;
+
+  TIntegerListSortCompare = function(List: TIntegerList; Index1, Index2: Integer): Integer;
+
+  TIntegerList = class(TObject)
+  private
+    FList : TList;
+    FDuplicates : TDuplicates;
+    FSorted: Boolean;
+
+    function GetItems(Index: Integer): Integer;
+    procedure SetItems(Index: Integer; const Value: Integer);
+    function GetCapacity: Integer;
+    function GetCount: Integer;
+    procedure SetCapacity(const Value: Integer);
+    procedure SetCount(const Value: Integer);
+    procedure SetSorted(const Value: Boolean);
+    function GetHigh: Integer;
+
+  protected
+    procedure Sort; virtual;
+    procedure QuickSort(L, R: Integer; SCompare: TIntegerListSortCompare);
+
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    function Add(Item: Integer) : Integer;
+    procedure Insert(Index, Item: Integer);
+
+    function First() : Integer;
+    function Last() : Integer;
+
+    function StringContents: string;
+    procedure LoadFromString(AString: string; Separator: string = ',');
+
+    procedure Clear;
+    procedure Delete(Index: Integer);
+
+    function IndexOf(const Value: integer): integer;
+    function Find(aValue : Integer; var Index: Integer): Boolean; virtual;
+
+    procedure Exchange(Index1, Index2: Integer);
+    procedure Move(CurIndex, NewIndex: Integer);
+    procedure Pack;
+
+    property Capacity: Integer read GetCapacity write SetCapacity;
+    property Count: Integer read GetCount write SetCount;
+    property High: Integer read GetHigh;
+
+    property Duplicates: TDuplicates read FDuplicates write FDuplicates;
+
+    property Items[Index: Integer]: Integer read GetItems write SetItems; default;
+
+    property Sorted : Boolean read FSorted write SetSorted;
+  end;
+
+// Types
+function MakeRoundRect(SRect: TRect; Rnd: integer): TRoundRect; overload;
+function MakeRoundRect(SRect: TRect; RndX, RndY: integer): TRoundRect; overload;
+function MakeRoundRect(X1, Y1, X2, Y2: integer; Rnd: integer): TRoundRect; overload;
+
+function MakeLine(Point1, Point2: TPoint): TLine; overload;
+function MakeLine(X1, Y1, X2, Y2: integer): TLine; overload;
+
+// Utilities
+function PointOnLine(X, Y, x1, y1, x2, y2, d: Integer): Boolean;
+
+{ Rectangles }
+function GetValidRect(Point1, Point2: TPoint): TRect; overload;
+function GetValidRect(Points: TArray<TPoint>): TRect; overload;
+function GetValidRect(Points: TArray<TPointF>): TRectF; overload;
+function GetValidRect(Rect: TRect): TRect; overload;
+procedure CenterRectInRect(var ARect: TRect; const ParentRect: TRect);
+procedure CenterRectAtPoint(var ARect: TRect; const APoint: TPoint);
+function PointInRect(Point: TPoint; Rect: TRect): boolean;
+procedure ContainRectInRect(var ARect: TRect; const ParentRect: TRect);
+///  Morph rectangle or point from a value to the destination rectangle
+///  based on the percent provided. The percent is from 0.00 to 1.00
+///  NOTE: Rectangles must be normalised!
+function MorphToRect(Source: TRect; Destination: TRect; Percent: single): TRect; overload;
+function MorphToRect(Source: TPoint; Destination: TRect; Percent: single): TRect; overload;
+function RectangleLayouts(const Element: TSize; Parent: TRect; Layout: TRectLayout): TArray<TRect>; overload;
+function RectangleLayouts(const Element: TRect; Parent: TRect; Layout: TRectLayout): TArray<TRect>; overload;
+
+{ Matrix }
+procedure FloodFill(var Grid: TArray<TArray<boolean>>; Start: TPoint; NewValue: boolean);
+
+{ Points }
+function SetPositionAroundPoint(Point: TPoint; Center: TPoint; degree: real; customradius: real = -1): TPoint;
+function PointAroundCenter(Center: TPoint; degree: real; customradius: real = -1): TPoint;
+function RotatePointAroundPoint(APoint: TPoint; ACenter: TPoint; ARotateDegree: real; ACustomRadius: real = -1): TPoint;
+function PointAngle(APoint: TPoint; ACenter: TPoint; offset: integer = 0): integer;
+
+// Conversion Functions
+function StringToBoolean(str: string): Boolean;
+function BooleanToString(value: boolean): String;
+function BooleanToYesNo(value: boolean): String;
+{$IFDEF WINDOWS}
+function IconToBitmap(icon: TIcon): TBitMap;
+{$ENDIF}
+function IntToStrIncludePrefixZeros(Value: integer; NumbersCount: integer): string;
+
+function DecToHex(Dec: int64): string;
+function HexToDec(Hex: string): int64;
+
+{ Arrays }
+function InArray(Value: integer; arrayitem: array of integer): integer; overload;
+function InArray(Value: string; arrayitem: array of string): integer; overload;
+procedure ShuffleArray(var arr: TArray<Integer>);
+procedure ArrayAdd(Data: string; var AArray: TArray<string>; CheckDuplicate: boolean = false);
+procedure ArrayRemove(Data: string; var AArray: TArray<string>; RemoveAll: boolean = true);
 
 implementation
-
 
 function MakeRoundRect(SRect: TRect; Rnd: integer): TRoundRect;
 var
@@ -248,54 +345,16 @@ begin
   Result := rec;
 end;
 
-function Line(Point1, Point2: TPoint): TLine;
+function MakeLine(Point1, Point2: TPoint): TLine;
 begin
   Result.Point1 := Point1;
   Result.Point2 := Point2;
 end;
 
-function Line(X1, Y1, X2, Y2: integer): TLine;
+function MakeLine(X1, Y1, X2, Y2: integer): TLine;
 begin
   Result.Point1 := Point(X1, Y1);
   Result.Point2 := Point(X2, Y2);
-end;
-
-function CompareItems(Primary, Secondary: string): TRelation;
-begin
-  Result := TRelation.Smaller;
-
-  if Primary > Secondary then
-    Result := TRelation.Bigger
-      else
-        if Primary = Secondary then
-          Result := TRelation.Equal;
-end;
-
-function CompareItems(Primary, Secondary: integer): TRelation; overload;
-begin
-  Result := TRelation.Smaller;
-
-  if Primary > Secondary then
-    Result := TRelation.Bigger
-      else
-        if Primary = Secondary then
-          Result := TRelation.Equal;
-end;
-
-function CompareItems(Primary, Secondary: real): TRelation; overload;
-begin
-  Result := TRelation.Smaller;
-
-  if Primary > Secondary then
-    Result := TRelation.Bigger
-      else
-        if Primary = Secondary then
-          Result := TRelation.Equal;
-end;
-
-function CompareItems(Primary, Secondary: TDateTime): TRelation; overload;
-begin
-  Result :=  TRelation(CompareDateTime(Primary, Secondary)+1);
 end;
 
 function PointOnLine(X, Y, x1, y1, x2, y2, d: Integer): Boolean;
@@ -330,6 +389,30 @@ begin
 end;
 
 function GetValidRect(Points: TArray<TPoint>): TRect; overload
+var
+  I: Integer;
+begin
+  if Length( Points ) = 0 then
+    Exit;
+
+  Result.TopLeft := Points[0];
+  Result.BottomRight := Points[0];
+
+  for I := 1 to High(Points) do
+    begin
+      if Points[I].X < Result.Left then
+        Result.Left := Points[I].X;
+      if Points[I].Y < Result.Top then
+        Result.Top := Points[I].Y;
+
+      if Points[I].X > Result.Right then
+        Result.Right := Points[I].X;
+      if Points[I].Y > Result.Bottom then
+        Result.Bottom := Points[I].Y;
+    end;
+end;
+
+function GetValidRect(Points: TArray<TPointF>): TRectF; overload;
 var
   I: Integer;
 begin
@@ -405,6 +488,180 @@ begin
     ARect.Offset(Right, 0);
   if Bottom < 0 then
     ARect.Offset(0, Bottom);
+end;
+
+function MorphToRect(Source: TRect; Destination: TRect; Percent: single): TRect;
+begin
+  Result := Source;
+
+  Inc(Result.Left,
+    round((Destination.Left-Source.Left)*Percent)
+    );
+  Inc(Result.Top,
+    round((Destination.Top-Source.Top)*Percent)
+    );
+  Inc(Result.Right,
+    round((Destination.Right-Source.Right)*Percent)
+    );
+  Inc(Result.Bottom,
+    round((Destination.Bottom-Source.Bottom)*Percent)
+    );
+end;
+
+function MorphToRect(Source: TPoint; Destination: TRect; Percent: single): TRect;
+begin
+  Result := MorphToRect(TRect.Create(Source), Destination, Percent);
+end;
+
+function RectangleLayouts(const Element: TSize; Parent: TRect; Layout: TRectLayout): TArray<TRect>; overload;
+var
+  Base: TRect;
+
+  BoundBottomRight: TPoint;
+begin
+  // Shrink Margins
+  if Layout.MarginParent <> 0 then
+    Parent.Inflate(-Layout.MarginParent, -Layout.MarginParent);
+
+  if (Element.Width = 0) or (Element.Height = 0) then
+    Exit;
+
+  // Calculate base
+  Base := TRect.Empty;
+  case Layout.ContentFill of
+    TRectLayoutContentFill.Stretch: Base := Parent;
+    TRectLayoutContentFill.Fill: begin
+      Base := Parent;
+
+      // Get proportions
+      const Scale = Element .Height * (Base.Width / Element.Width);
+      if Scale < Base.Height then
+        Base.Width := trunc(Element.Width * (Base.Height / Element.Height))
+          else
+            Base.Height := trunc(Scale);
+    end;
+    TRectLayoutContentFill.Fit: begin
+      Base := Parent;
+
+      // Get proportions
+      const Scale = Element.Height * (Base.Width / Element.Width);
+      if Scale > Base.Height then
+        Base.Width := trunc(Element.Width * (Base.Height / Element.Height))
+          else
+            Base.Height := trunc(Scale);
+    end;
+    TRectLayoutContentFill.SelfProportion: begin
+      Base := TRect.Create(Parent.TopLeft,
+        round(Element.Width * Layout.ProportionScale.cx),
+        round(Element.Height * Layout.ProportionScale.cy));
+    end;
+    TRectLayoutContentFill.ParentProportion: begin
+      Base := TRect.Create(Parent.TopLeft,
+        round(Parent.Width * Layout.ProportionScale.cx),
+        round(Parent.Height * Layout.ProportionScale.cy));
+    end
+
+    // Default, keep same size
+    else Base := TRect.Create(Parent.TopLeft, Element.Width, Element.Height);
+  end;
+
+  // Layout
+  if Layout.Tile then begin
+    Result := [Base];
+    var ColCount, RowCount, DivTotal: integer;
+    var ElemSize: TSize;
+    ElemSize := TSize.Create(Base.Width+Layout.MarginTile, Base.Height+Layout.MarginTile);
+
+    // Calculate columns
+    DivTotal := (Parent.Width+Layout.MarginTile);
+    ColCount := DivTotal div ElemSize.cx;
+    if TRectLayoutTileFlag.ExtendX in Layout.TileFlags then
+      if DivTotal mod ElemSize.cx > 0 then
+        Inc(ColCount);
+
+
+    // Calculate rows
+    DivTotal := (Parent.Height+Layout.MarginTile);
+    RowCount := DivTotal div ElemSize.cy;
+    if TRectLayoutTileFlag.ExtendY in Layout.TileFlags then
+      if DivTotal mod ElemSize.cy > 0 then
+        Inc(RowCount);
+
+    // Calculate each
+    SetLength(Result, RowCount*ColCount);
+    BoundBottomRight := Base.TopLeft;
+    for var Row := 0 to RowCount-1 do
+      for var Col := 0 to ColCount-1 do begin
+        const Index = Row*ColCount + Col;
+        Result[Index] := Base;
+        Result[Index].Offset( ElemSize.cx*Col, ElemSize.cy*Row );
+      end;
+
+    // Bottom right
+    BoundBottomRight := TPoint.Create(
+      Base.Left+ElemSize.cx*(ColCount-1) + Base.Width,
+      Base.Top+ElemSize.cy*(RowCount-1) + Base.Height);
+  end
+    else begin
+      Result := [Base];
+
+      BoundBottomRight := Base.BottomRight;
+    end;
+
+  // Layout
+  if (Layout.LayoutHorizontal <> TLayout.Beginning) or (Layout.LayoutVertical <> TLayout.Beginning) then begin
+    var Offset: TPoint;
+    Offset := TPoint.Zero;
+
+    // Horizontal offset
+    case Layout.LayoutHorizontal of
+      TLayout.Center: Offset.X := trunc((Parent.Right - BoundBottomRight.X) / Layout.CenterDivisor.cx);
+      TLayout.Ending: Offset.X := Parent.Right - BoundBottomRight.X;
+    end;
+    // Vertical offset
+    case Layout.LayoutVertical of
+      TLayout.Center: Offset.Y := trunc((Parent.Bottom - BoundBottomRight.Y) / Layout.CenterDivisor.cy);
+      TLayout.Ending: Offset.Y := Parent.Bottom - BoundBottomRight.Y;
+    end;
+
+    for var I := 0 to High(Result) do
+      Result[I].Offset( Offset );
+  end;
+
+  // Margin self
+  if Layout.MarginSelf <> 0 then
+    for var I := 0 to High(Result) do
+      Result[I].Inflate(-Layout.MarginSelf, -Layout.MarginSelf);
+end;
+
+function RectangleLayouts(const Element: TRect; Parent: TRect; Layout: TRectLayout): TArray<TRect>;
+begin
+  Result := RectangleLayouts(TSize.Create(Element.Width, Element.Height), Parent, Layout);
+end;
+
+procedure FloodFill(var Grid: TArray<TArray<boolean>>; Start: TPoint; NewValue: boolean);
+var
+  Queue: TQueue<TPoint>;
+  CurrentPoint: TPoint;
+  X, Y: Integer;
+begin
+  Queue := TQueue<TPoint>.Create;
+  Queue.Enqueue(TPoint.Create(Start.X, Start.Y));
+  while Queue.Count > 0 do
+  begin
+    CurrentPoint := Queue.Dequeue;
+    X := CurrentPoint.X;
+    Y := CurrentPoint.Y;
+    if (X >= 0) and (X < Length(Grid)) and (Y >= 0) and (Y < Length(Grid[X]))and (Grid[X, Y] <> NewValue) then
+    begin
+      Grid[X, Y] := NewValue;
+      Queue.Enqueue(TPoint.Create(X - 1, Y));
+      Queue.Enqueue(TPoint.Create(X + 1, Y));
+      Queue.Enqueue(TPoint.Create(X, Y - 1));
+      Queue.Enqueue(TPoint.Create(X, Y + 1));
+    end;
+  end;
+  Queue.Free;
 end;
 
 function SetPositionAroundPoint(Point: TPoint; Center: TPoint; degree: real; customradius: real = -1): TPoint;
@@ -496,10 +753,10 @@ end;
 
 function StringToBoolean(str: string): boolean;
 begin
-  if (AnsiLowerCase(str) = 'true') or (str = '1') or (str = '-1') then
-    Result := true
+  if (LowerCase(str) = 'false') or (str = '0') then
+    Result := false
   else
-    Result := false;
+    Result := true;
 end;
 
 function BooleanToString(value: boolean): string;
@@ -518,6 +775,7 @@ begin
     Result := 'no'
 end;
 
+{$IFDEF WINDOWS}
 function IconToBitmap(icon: TIcon): TBitMap;
 begin
   Result := TBitmap.Create;
@@ -528,6 +786,7 @@ begin
   Result.Transparent := true;
   Result.TransparentMode := tmAuto;
 end;
+{$ENDIF}
 
 function IntToStrIncludePrefixZeros(Value: integer; NumbersCount: integer): string;
 var
@@ -755,6 +1014,11 @@ begin
   Result := abs(Point1.X - Point2.X);
 end;
 
+function TLine.Length: single;
+begin
+  Result := sqrt(power(Point1.X-Point2.X, 2)+power(Point1.Y-Point2.Y, 2));
+end;
+
 procedure TLine.OffSet(const DX, DY: Integer);
 begin
   Inc( Point1.X, DX );
@@ -763,9 +1027,27 @@ begin
   Inc( Point2.Y, DY );
 end;
 
+function TLine.Points: TPoints;
+begin
+  Result := [Point1, Point2];
+end;
+
 function TLine.Rect: TRect;
 begin
   Result := GetValidRect(Point1, Point2);
+end;
+
+function TLine.Angle: single;
+begin
+  if Point2.X = Point1.X then
+    if Point2.Y > Point1.Y then
+      Result := 90
+    else
+      Result := 270
+  else
+    Result := RadToDeg(ArcTan2(Point2.Y - Point1.Y, Point2.X - Point1.X));
+  if Result < 0 then
+    Result := Result + 360;
 end;
 
 function TLine.Center: TPoint;
@@ -1114,6 +1396,11 @@ begin
   Result := abs(Point1.X - Point2.X);
 end;
 
+function TLineF.Length: single;
+begin
+  Result := sqrt(power(Point1.X-Point2.X, 2)+power(Point1.Y-Point2.Y, 2));
+end;
+
 procedure TLineF.OffSet(const DX, DY: single);
 begin
   Point1.X := Point1.X + DX;
@@ -1127,9 +1414,135 @@ begin
   Result := TRectF.Create(Point1, Point2, true);
 end;
 
+function TLineF.Angle: single;
+begin
+  if Point2.X = Point1.X then
+    if Point2.Y > Point1.Y then
+      Result := 90
+    else
+      Result := 270
+  else
+    Result := RadToDeg(ArcTan2(Point2.Y - Point1.Y, Point2.X - Point1.X));
+  if Result < 0 then
+    Result := Result + 360;
+end;
+
 function TLineF.Center: TPointF;
 begin
   Result := PointF( (Point1.X + Point2.X) / 2, (Point1.Y + Point2.Y) / 2);
+end;
+
+{ TSwitch<T> }
+
+class function TSwitch<T>.Option(Value: T; Call: TProc): TCase;
+begin
+  Result := Option([Value], Call);
+end;
+
+class function TSwitch<T>.Option(Values: TArray<T>; Call: TProc): TCase;
+begin
+  Result.Values := Values;
+  Result.CallBack := Call;
+end;
+
+class procedure TSwitch<T>.Switch(Value: T; Cases: TArray<TCase>; Default: TProc);
+begin
+  for var I := 0 to High(Cases) do
+    for var J := 0 to High(Cases[I].Values) do
+      if TComparer<T>.Default.Compare(Cases[I].Values[J], Value) = TValueRelationship.Equal then begin
+        Cases[I].Execute;
+        Exit;
+      end;
+
+  // Default
+  if Assigned(Default) then
+    Default;
+end;
+
+class procedure TSwitch<T>.Switch(Value: T; Cases: TArray<TCase>);
+begin
+  Switch(Value, Cases, nil);
+end;
+
+{ TSwitch<T>.TCase }
+
+procedure TSwitch<T>.TCase.Execute;
+begin
+  Callback;
+end;
+
+{ TType<T> }
+
+class function TType<T>.Compare(var A, B: T): TValueRelationship;
+var
+  lComparer: IComparer<T>;
+begin
+  lComparer := TComparer<T>.Default;
+
+  Result := lComparer.Compare(A, B);
+end;
+
+class function TType<T>.IfElse(Condition: boolean; IfTrue, IfFalse: T): T;
+begin
+  if Condition then
+    Result := IfTrue
+  else
+    Result := IfFalse;
+end;
+
+class procedure TType<T>.Switch(var A, B: T);
+var
+  Temp: T;
+begin
+  Temp := A;
+  A := B;
+  B := Temp;
+end;
+
+{ TRectLayout }
+
+class function TRectLayout.New: TRectLayout;
+begin
+  Result.LayoutHorizontal := TLayout.Beginning;
+  Result.LayoutVertical := TLayout.Beginning;
+
+  Result.CenterDivisor := TSizeF.Create(2, 2);
+  Result.ProportionScale := TSizeF.Create(1, 1);
+
+  Result.ContentFill := TRectLayoutContentFill.None;
+  Result.Tile := false;
+  Result.TileFlags := [TRectLayoutTileFlag.ExtendX, TRectLayoutTileFlag.ExtendY];
+
+  Result.MarginTile := 0;
+  Result.MarginParent := 0;
+  Result.MarginsELF := 0;
+end;
+
+{ TValueRelationshipHelper }
+
+function TValueRelationshipHelper.IsEqual: boolean;
+begin
+  Result := Self = EqualsValue;
+end;
+
+function TValueRelationshipHelper.IsGreater: boolean;
+begin
+  Result := Self = GreaterThanValue;
+end;
+
+function TValueRelationshipHelper.IsGreaterOrEqual: boolean;
+begin
+  Result := Self >= EqualsValue;
+end;
+
+function TValueRelationshipHelper.IsLess: boolean;
+begin
+  Result := Self = LessThanValue;
+end;
+
+function TValueRelationshipHelper.IsLessOrEqual: boolean;
+begin
+  Result := Self <= EqualsValue;
 end;
 
 end.

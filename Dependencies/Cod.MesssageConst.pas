@@ -2,12 +2,17 @@ unit Cod.MesssageConst;
 
 interface
 
-const
+resourcestring
   // Value
-  NOT_NUMBER = 'NaN';
+  NOT_NUMBER = 'NaN'; // do not localise
   STRING_UNKNOWN = 'Unknown';
   NOT_FOUND = 'Not Found';
   NOT_DEFINED = 'Not Defined';
+  STRING_YES = 'yes';
+  STRING_NO = 'no';
+
+  // General
+  DEFAULT_COMPANY = 'Codrut Software'; // do not localise
 
   // Errors
   ERROR_MANIFEST_NOTFOUND = 'Manifest for "%S" not found.';
