@@ -450,6 +450,8 @@ end;
 
 procedure CSlider.SetAccentColor(const Value: CAccentColor);
 begin
+  if FAccent = Value then
+    Exit;
   FAccent := Value;
 
   if Value <> CAccentColor.None then
@@ -460,6 +462,8 @@ end;
 
 procedure CSlider.SetBackground(const Value: CSliderBackground);
 begin
+  if FBackground = Value then
+    Exit;
   FBackground := Value;
 
   Paint;
@@ -467,6 +471,8 @@ end;
 
 procedure CSlider.SetForeground(const Value: CSliderForeground);
 begin
+  if FForeground = Value then
+    Exit;
   FForeground := Value;
 
   Paint;
@@ -474,6 +480,8 @@ end;
 
 procedure CSlider.SetIndicator(const Value: CSliderIndicator);
 begin
+  if FIndic = Value then
+    Exit;
   FIndic := Value;
 
   Paint;
@@ -481,6 +489,8 @@ end;
 
 procedure CSlider.SetIndicColor(const Value: CSliderIndicatorColor);
 begin
+  if FIndicColor = Value then
+    Exit;
   FIndicColor := Value;
 
   Paint;
@@ -488,6 +498,8 @@ end;
 
 procedure CSlider.SetMax(const Value: integer);
 begin
+  if FMax = Value then
+    Exit;
   FMax := Value;
   if FPosition > FMax then FPosition := FMax;
   Paint;
@@ -495,6 +507,8 @@ end;
 
 procedure CSlider.SetMin(const Value: integer);
 begin
+  if FMin = Value then
+    Exit;
   FMin := Value;
   if FPosition < FMin then
     FPosition := FMin;
@@ -503,11 +517,15 @@ end;
 
 procedure CSlider.SetOptions(const Value: CSliderOptions);
 begin
+  if FOptions = Value then
+    Exit;
   FOptions := Value;
 end;
 
 procedure CSlider.SetPosition(const Value: integer);
 begin
+  if FPosition = Value then
+    Exit;
   FPosition := Value;
 
   if csLoading in ComponentState then
@@ -524,6 +542,8 @@ end;
 
 procedure CSlider.SetPresets(const Value: CSliderPreset);
 begin
+  if FPreset = Value then
+    Exit;
   //if FProgOptions.exceptpreset then Exit;
   FPreset := Value;
 
@@ -531,6 +551,8 @@ end;
 
 procedure CSlider.SetState(const Value: CSliderState);
 begin
+  if FState = Value then
+    Exit;
   FState := Value;
 
   Paint;

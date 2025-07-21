@@ -4,7 +4,7 @@ interface
 
 uses
   SysUtils,
-  Windows,
+  Winapi.Windows,
   Classes,
   Vcl.Controls,
   Vcl.Graphics,

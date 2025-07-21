@@ -10,6 +10,7 @@ uses
   Vcl.Graphics,
   Vcl.ExtCtrls,
   Cod.Graphics,
+  Cod.SysUtils,
   Types,
   Consts,
   Forms,
@@ -43,6 +44,7 @@ type
     FOnSetupComplete: CSplashScreenDoneSetup;
     FOnFinalise: CSplashScreenFinalise;
     FTitleBar: TTitleBarPanel;
+    FOpenSystemMenu: boolean;
 
     procedure PictureChanged(Sender: TObject);
     procedure SetPicture(Value: TPicture);
@@ -59,6 +61,8 @@ type
     procedure FindGraphicClass(Sender: TObject; const Context: TFindGraphicClassContext;
       var GraphicClass: TGraphicClass); dynamic;
     procedure CMStyleChanged(var Message: TMessage); message CM_STYLECHANGED;
+
+    procedure MouseUp(Button : TMouseButton; Shift: TShiftState; X, Y : integer); override;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -78,6 +82,7 @@ type
     property PopupMenu;
     property ShowHint;
     property SuperiorCustomTitleBar: TTitleBarPanel read FTitleBar write FTitleBar;
+    property OpenSystemMenu: boolean read FOpenSystemMenu write FOpenSystemMenu default true;
     property OnFinalise: CSplashScreenFinalise read FOnFinalise write FOnFinalise;
     property OnCompleteSetup: CSplashScreenDoneSetup read FOnSetupComplete write FOnSetupComplete;
     property Transparent: Boolean read FTransparent write SetTransparent default False;
@@ -122,6 +127,8 @@ begin
   FPicture := TPicture.Create;
   FPicture.OnChange := PictureChanged;
   FPicture.OnFindGraphicClass := FindGraphicClass;
+
+  FOpenSystemMenu := true;
 
   ParentBackground := false;
 
@@ -221,6 +228,17 @@ begin
   Self.Invalidate;
 
   Paint;
+end;
+
+procedure CSplashScreen.MouseUp(Button: TMouseButton; Shift: TShiftState; X,
+  Y: integer);
+begin
+  inherited;
+  if OpenSystemMenu and (Button = mbRight) then begin
+    const Form = TForm(GetParentForm(Self));
+    if Form <> nil then
+      OpenFormSystemMenu(Form);
+  end;
 end;
 
 procedure CSplashScreen.Paint;

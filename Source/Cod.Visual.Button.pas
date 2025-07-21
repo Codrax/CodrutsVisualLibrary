@@ -1106,7 +1106,7 @@ end;
 procedure CButton.KeyPress(var Key: Char);
 begin
   inherited;
-  if key = #13 then begin
+  if (key = #13) or (key = ' ') then begin
     SetState(mbsDown);
     if Assigned(FOnStateChange) then FOnStateChange(Self, FState);
     //if Assigned(OnClick) then OnClick(Self);

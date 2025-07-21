@@ -476,7 +476,7 @@ end;
 procedure CCheckBox.KeyPress(var Key: Char);
 begin
   inherited;
-  if key = #13 then begin
+  if (key = #13) or (key = ' ') then begin
     IncCheck();
   end;
 end;

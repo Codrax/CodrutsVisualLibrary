@@ -13,7 +13,7 @@ uses
   Vcl.Styles,
   Cod.VarHelpers,
   Vcl.Themes,
-  Windows;
+  Winapi.Windows;
 
 type
   CStandardIcon = class;
